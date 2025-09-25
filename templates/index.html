@@ -1,0 +1,103 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<div class="px-4 py-5 my-5 text-center fade-in">
+    <i class="fas fa-chart-line fa-4x text-primary mb-4"></i>
+    <h1 class="display-5 fw-bold">Добро пожаловать в InvestBot</h1>
+    <div class="col-lg-8 mx-auto">
+      <p class="lead mb-4">Ваш персональный помощник для отслеживания инвестиций в российские акции. Управляйте счетами, анализируйте портфель и следите за рынком в реальном времени.</p>
+      <div class="d-grid gap-2 d-sm-flex justify-content-sm-center">
+        <a href="{{ url_for('login') }}" class="btn btn-primary btn-lg px-4 btn-action">
+          <i class="fas fa-rocket me-2"></i>Начать работу
+        </a>
+        <a href="{{ url_for('stocks') }}" class="btn btn-outline-secondary btn-lg px-4 btn-action">
+          <i class="fas fa-list me-2"></i>Просмотреть акции
+        </a>
+      </div>
+    </div>
+</div>
+
+<!-- Демо вход -->
+<div class="row justify-content-center mb-5">
+    <div class="col-md-8">
+        <div class="alert alert-info text-center">
+            <h5><i class="fas fa-info-circle me-2"></i>Демонстрация</h5>
+            <p class="mb-3">Для тестирования приложения используйте демо-аккаунт:</p>
+            <a href="{{ url_for('login') }}?telegram_id=123456789&username=demo_user" class="btn btn-info">
+                <i class="fas fa-user me-2"></i>Войти как demo_user
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Возможности -->
+<div class="row mt-5">
+    <div class="col-md-12 text-center mb-4">
+        <h2>Возможности InvestBot</h2>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-4 mb-4">
+        <div class="card h-100 text-center stock-card">
+            <div class="card-body">
+                <i class="fas fa-wallet fa-3x text-primary mb-3"></i>
+                <h5 class="card-title">Управление счетами</h5>
+                <p class="card-text">Создавайте несколько счетов, пополняйте их и выводите средства. Отслеживайте баланс в реальном времени.</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4 mb-4">
+        <div class="card h-100 text-center stock-card">
+            <div class="card-body">
+                <i class="fas fa-chart-line fa-3x text-success mb-3"></i>
+                <h5 class="card-title">Торговля акциями</h5>
+                <p class="card-text">Покупайте и продавайте российские акции по актуальным котировкам. Более 250 доступных инструментов.</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4 mb-4">
+        <div class="card h-100 text-center stock-card">
+            <div class="card-body">
+                <i class="fas fa-calculator fa-3x text-warning mb-3"></i>
+                <h5 class="card-title">Анализ прибыли</h5>
+                <p class="card-text">Автоматический расчет прибыли и убытков по каждой позиции и портфелю в целом.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-4 mb-4">
+        <div class="card h-100 text-center stock-card">
+            <div class="card-body">
+                <i class="fas fa-history fa-3x text-info mb-3"></i>
+                <h5 class="card-title">История операций</h5>
+                <p class="card-text">Полная история всех транзакций с возможностью фильтрации и поиска.</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4 mb-4">
+        <div class="card h-100 text-center stock-card">
+            <div class="card-body">
+                <i class="fab fa-telegram fa-3x text-primary mb-3"></i>
+                <h5 class="card-title">Telegram интеграция</h5>
+                <p class="card-text">Удобный доступ через Telegram бот. Быстрый просмотр портфеля прямо в мессенджере.</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4 mb-4">
+        <div class="card h-100 text-center stock-card">
+            <div class="card-body">
+                <i class="fas fa-mobile-alt fa-3x text-success mb-3"></i>
+                <h5 class="card-title">Адаптивный дизайн</h5>
+                <p class="card-text">Удобное использование на любых устройствах - компьютер, планшет, смартфон.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

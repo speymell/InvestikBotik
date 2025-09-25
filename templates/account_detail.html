@@ -1,0 +1,251 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">Портфель</a></li>
+                <li class="breadcrumb-item active">{{ account.name }}</li>
+            </ol>
+        </nav>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h4>{{ account.name }}</h4>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h5>Текущий баланс</h5>
+                        <h3 class="text-success">{{ "%.2f"|format(account.balance) }} ₽</h3>
+                    </div>
+                    <div class="col-md-6">
+                        <h5>ID счета</h5>
+                        <p class="text-muted">{{ account.id }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5>История транзакций</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Дата</th>
+                                <th>Тип</th>
+                                <th>Акция</th>
+                                <th>Количество</th>
+                                <th>Цена</th>
+                                <th>Сумма</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for transaction in transactions %}
+                            <tr>
+                                <td>{{ transaction.timestamp.strftime('%d.%m.%Y %H:%M') }}</td>
+                                <td>
+                                    <span class="badge 
+                                        {% if transaction.type == 'deposit' %}bg-success
+                                        {% elif transaction.type == 'withdrawal' %}bg-danger
+                                        {% elif transaction.type == 'buy' %}bg-primary
+                                        {% elif transaction.type == 'sell' %}bg-warning
+                                        {% endif %}">
+                                        {% if transaction.type == 'deposit' %}Пополнение
+                                        {% elif transaction.type == 'withdrawal' %}Вывод
+                                        {% elif transaction.type == 'buy' %}Покупка
+                                        {% elif transaction.type == 'sell' %}Продажа
+                                        {% endif %}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if transaction.stock_id %}
+                                        {{ transaction.stock.ticker }}
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if transaction.quantity %}
+                                        {{ transaction.quantity }} шт.
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if transaction.price %}
+                                        {{ "%.2f"|format(transaction.price) }} ₽
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                                <td class="
+                                    {% if transaction.type in ['deposit', 'sell'] %}text-success
+                                    {% elif transaction.type in ['withdrawal', 'buy'] %}text-danger
+                                    {% endif %}">
+                                    {% if transaction.type in ['deposit', 'sell'] %}+{% elif transaction.type in ['withdrawal', 'buy'] %}-{% endif %}{{ "%.2f"|format(transaction.amount) }} ₽
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                {% if not transactions %}
+                <div class="text-center py-4">
+                    <p class="text-muted">Нет транзакций</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5>Действия со счетом</h5>
+            </div>
+            <div class="card-body">
+                <button class="btn btn-success btn-block mb-2" data-bs-toggle="modal" data-bs-target="#depositModal">
+                    Пополнить счет
+                </button>
+                <button class="btn btn-warning btn-block mb-2" data-bs-toggle="modal" data-bs-target="#withdrawModal">
+                    Вывести средства
+                </button>
+                <a href="{{ url_for('stocks') }}" class="btn btn-primary btn-block">
+                    Купить акции
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal для пополнения -->
+<div class="modal fade" id="depositModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Пополнить счет</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="depositForm">
+                    <div class="mb-3">
+                        <label for="depositAmount" class="form-label">Сумма пополнения</label>
+                        <input type="number" class="form-control" id="depositAmount" step="0.01" min="0.01" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-success" onclick="submitDeposit()">Пополнить</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal для вывода -->
+<div class="modal fade" id="withdrawModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Вывести средства</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="withdrawForm">
+                    <div class="mb-3">
+                        <label for="withdrawAmount" class="form-label">Сумма вывода</label>
+                        <input type="number" class="form-control" id="withdrawAmount" step="0.01" min="0.01" max="{{ account.balance }}" required>
+                        <small class="text-muted">Доступно: {{ "%.2f"|format(account.balance) }} ₽</small>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-warning" onclick="submitWithdraw()">Вывести</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function submitDeposit() {
+    const amount = document.getElementById('depositAmount').value;
+    
+    if (!amount || amount <= 0) {
+        alert('Введите корректную сумму');
+        return;
+    }
+    
+    fetch('/api/deposit', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            account_id: {{ account.id }},
+            amount: amount
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Счет успешно пополнен!');
+            location.reload();
+        } else {
+            alert('Ошибка: ' + data.error);
+        }
+    })
+    .catch(error => {
+        alert('Произошла ошибка: ' + error);
+    });
+}
+
+function submitWithdraw() {
+    const amount = document.getElementById('withdrawAmount').value;
+    
+    if (!amount || amount <= 0) {
+        alert('Введите корректную сумму');
+        return;
+    }
+    
+    if (amount > {{ account.balance }}) {
+        alert('Недостаточно средств на счете');
+        return;
+    }
+    
+    fetch('/api/withdraw', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            account_id: {{ account.id }},
+            amount: amount
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Средства успешно выведены!');
+            location.reload();
+        } else {
+            alert('Ошибка: ' + data.error);
+        }
+    })
+    .catch(error => {
+        alert('Произошла ошибка: ' + error);
+    });
+}
+</script>
+{% endblock %}

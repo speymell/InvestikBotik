@@ -1,0 +1,260 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h2>Добро пожаловать, {{ user.username }}!</h2>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-3 mb-3">
+        <div class="card card-stats balance-card h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-wallet fa-2x mb-2"></i>
+                <h5 class="card-title">Свободные средства</h5>
+                <h3 class="price-display">{{ "%.2f"|format(portfolio_stats.total_balance) }} ₽</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card card-stats invested-card h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-chart-line fa-2x mb-2"></i>
+                <h5 class="card-title">Инвестировано</h5>
+                <h3 class="price-display">{{ "%.2f"|format(portfolio_stats.total_invested) }} ₽</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card card-stats value-card h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-coins fa-2x mb-2"></i>
+                <h5 class="card-title">Текущая стоимость</h5>
+                <h3 class="price-display">{{ "%.2f"|format(portfolio_stats.total_current_value) }} ₽</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card card-stats profit-card h-100 {% if portfolio_stats.total_profit_loss < 0 %}negative{% endif %}">
+            <div class="card-body text-center">
+                <i class="fas fa-{% if portfolio_stats.total_profit_loss >= 0 %}arrow-up{% else %}arrow-down{% endif %} fa-2x mb-2"></i>
+                <h5 class="card-title">Прибыль/Убыток</h5>
+                <h3 class="price-display">
+                    {{ "%.2f"|format(portfolio_stats.total_profit_loss) }} ₽
+                </h3>
+                <small>
+                    ({{ "%.1f"|format(portfolio_stats.total_profit_loss_percent) }}%)
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5>Мои счета</h5>
+            </div>
+            <div class="card-body">
+                {% for account in accounts %}
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div>
+                        <h6 class="mb-0">{{ account.name }}</h6>
+                        <small class="text-muted">ID: {{ account.id }}</small>
+                    </div>
+                    <div class="text-end">
+                        <span class="h6">{{ "%.2f"|format(account.balance) }} ₽</span>
+                        <br>
+                        <a href="{{ url_for('account_detail', account_id=account.id) }}" class="btn btn-sm btn-outline-primary">Подробнее</a>
+                    </div>
+                </div>
+                {% if not loop.last %}<hr>{% endif %}
+                {% endfor %}
+                
+                <button class="btn btn-success btn-sm mt-2" data-bs-toggle="modal" data-bs-target="#depositModal">
+                    Пополнить счет
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5>Последние транзакции</h5>
+            </div>
+            <div class="card-body">
+                {% for transaction in recent_transactions %}
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <div>
+                        <span class="badge 
+                            {% if transaction.type == 'deposit' %}bg-success
+                            {% elif transaction.type == 'withdrawal' %}bg-danger
+                            {% elif transaction.type == 'buy' %}bg-primary
+                            {% elif transaction.type == 'sell' %}bg-warning
+                            {% endif %}">
+                            {% if transaction.type == 'deposit' %}Пополнение
+                            {% elif transaction.type == 'withdrawal' %}Вывод
+                            {% elif transaction.type == 'buy' %}Покупка
+                            {% elif transaction.type == 'sell' %}Продажа
+                            {% endif %}
+                        </span>
+                        <small class="text-muted ms-2">{{ transaction.timestamp.strftime('%d.%m %H:%M') }}</small>
+                    </div>
+                    <span class="fw-bold">{{ "%.2f"|format(transaction.amount) }} ₽</span>
+                </div>
+                {% endfor %}
+                
+                {% if not recent_transactions %}
+                <p class="text-muted">Нет транзакций</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Портфель акций -->
+{% if portfolio_stats.positions %}
+<div class="row mt-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>Мой портфель акций</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Акция</th>
+                                <th>Количество</th>
+                                <th>Средняя цена</th>
+                                <th>Текущая цена</th>
+                                <th>Стоимость</th>
+                                <th>Прибыль/Убыток</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for position in portfolio_stats.positions %}
+                            <tr>
+                                <td>
+                                    <a href="{{ url_for('stock_detail', ticker=position.stock.ticker) }}" class="text-decoration-none">
+                                        <strong>{{ position.stock.ticker }}</strong><br>
+                                        <small class="text-muted">{{ position.stock.name[:30] }}...</small>
+                                    </a>
+                                </td>
+                                <td>{{ position.quantity }} шт.</td>
+                                <td>{{ "%.2f"|format(position.avg_price) }} ₽</td>
+                                <td>{{ "%.2f"|format(position.stock.price) }} ₽</td>
+                                <td>{{ "%.2f"|format(position.current_value) }} ₽</td>
+                                <td class="{% if position.profit_loss >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                    {{ "%.2f"|format(position.profit_loss) }} ₽<br>
+                                    <small>({{ "%.1f"|format(position.profit_loss_percent) }}%)</small>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Топ акций -->
+<div class="row mt-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>Популярные акции</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% for stock in top_stocks %}
+                    <div class="col-md-2">
+                        <div class="card border-light">
+                            <div class="card-body text-center p-2">
+                                <h6 class="card-title mb-1">{{ stock.ticker }}</h6>
+                                <p class="card-text small text-muted mb-1">{{ stock.name[:20] }}...</p>
+                                <p class="card-text"><strong>{{ "%.2f"|format(stock.price) }} ₽</strong></p>
+                                <a href="{{ url_for('stock_detail', ticker=stock.ticker) }}" class="btn btn-sm btn-outline-primary">Подробнее</a>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal для пополнения счета -->
+<div class="modal fade" id="depositModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Пополнить счет</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="depositForm">
+                    <div class="mb-3">
+                        <label for="accountSelect" class="form-label">Выберите счет</label>
+                        <select class="form-select" id="accountSelect" required>
+                            {% for account in accounts %}
+                            <option value="{{ account.id }}">{{ account.name }} ({{ "%.2f"|format(account.balance) }} ₽)</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="depositAmount" class="form-label">Сумма пополнения</label>
+                        <input type="number" class="form-control" id="depositAmount" step="0.01" min="0.01" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-success" onclick="submitDeposit()">Пополнить</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function submitDeposit() {
+    const accountId = document.getElementById('accountSelect').value;
+    const amount = document.getElementById('depositAmount').value;
+    
+    if (!amount || amount <= 0) {
+        alert('Введите корректную сумму');
+        return;
+    }
+    
+    fetch('/api/deposit', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            account_id: accountId,
+            amount: amount
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Счет успешно пополнен!');
+            location.reload();
+        } else {
+            alert('Ошибка: ' + data.error);
+        }
+    })
+    .catch(error => {
+        alert('Произошла ошибка: ' + error);
+    });
+}
+</script>
+{% endblock %}

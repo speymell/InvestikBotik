@@ -1,0 +1,254 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('stocks') }}">Акции</a></li>
+                <li class="breadcrumb-item active">{{ stock.ticker }}</li>
+            </ol>
+        </nav>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body">
+                <h2>{{ stock.ticker }} - {{ stock.name }}</h2>
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <h4 class="text-success">
+                            {% if stock.price > 0 %}
+                                {{ "%.2f"|format(stock.price) }} ₽
+                            {% else %}
+                                <span class="text-muted">Цена не доступна</span>
+                            {% endif %}
+                        </h4>
+                        <p class="text-muted">Текущая цена</p>
+                    </div>
+                </div>
+                
+                {% if user_positions %}
+                <hr>
+                <h5>Ваша позиция</h5>
+                <div class="row">
+                    <div class="col-md-3">
+                        <strong>Количество:</strong><br>
+                        {{ user_positions.quantity }} шт.
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Средняя цена:</strong><br>
+                        {{ "%.2f"|format(user_positions.avg_price) }} ₽
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Текущая стоимость:</strong><br>
+                        {{ "%.2f"|format(user_positions.current_value) }} ₽
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Прибыль/Убыток:</strong><br>
+                        <span class="{% if user_positions.profit_loss >= 0 %}text-success{% else %}text-danger{% endif %}">
+                            {{ "%.2f"|format(user_positions.profit_loss) }} ₽ 
+                            ({{ "%.1f"|format(user_positions.profit_loss_percent) }}%)
+                        </span>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        {% if session.user_id %}
+        <div class="card">
+            <div class="card-header">
+                <h5>Торговые операции</h5>
+            </div>
+            <div class="card-body">
+                <button class="btn btn-success btn-block mb-2" data-bs-toggle="modal" data-bs-target="#buyModal">
+                    Купить
+                </button>
+                {% if user_positions and user_positions.quantity > 0 %}
+                <button class="btn btn-danger btn-block" data-bs-toggle="modal" data-bs-target="#sellModal">
+                    Продать
+                </button>
+                {% endif %}
+            </div>
+        </div>
+        {% else %}
+        <div class="card">
+            <div class="card-body text-center">
+                <p>Войдите в систему для совершения операций</p>
+                <a href="{{ url_for('login') }}" class="btn btn-primary">Войти</a>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% if session.user_id %}
+<!-- Modal для покупки -->
+<div class="modal fade" id="buyModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Купить {{ stock.ticker }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="buyForm">
+                    <div class="mb-3">
+                        <label for="buyAccountSelect" class="form-label">Выберите счет</label>
+                        <select class="form-select" id="buyAccountSelect" required>
+                            <!-- Будет заполнено через AJAX -->
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="buyQuantity" class="form-label">Количество акций</label>
+                        <input type="number" class="form-control" id="buyQuantity" min="1" required>
+                    </div>
+                    <div class="mb-3">
+                        <p>Цена за акцию: <strong>{{ "%.2f"|format(stock.price) }} ₽</strong></p>
+                        <p>Общая стоимость: <strong id="totalCost">0.00 ₽</strong></p>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-success" onclick="submitBuy()">Купить</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal для продажи -->
+{% if user_positions and user_positions.quantity > 0 %}
+<div class="modal fade" id="sellModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Продать {{ stock.ticker }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="sellForm">
+                    <div class="mb-3">
+                        <label for="sellAccountSelect" class="form-label">Выберите счет</label>
+                        <select class="form-select" id="sellAccountSelect" required>
+                            <!-- Будет заполнено через AJAX -->
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="sellQuantity" class="form-label">Количество акций</label>
+                        <input type="number" class="form-control" id="sellQuantity" min="1" max="{{ user_positions.quantity }}" required>
+                        <small class="text-muted">Доступно: {{ user_positions.quantity }} шт.</small>
+                    </div>
+                    <div class="mb-3">
+                        <p>Цена за акцию: <strong>{{ "%.2f"|format(stock.price) }} ₽</strong></p>
+                        <p>Общая сумма: <strong id="totalRevenue">0.00 ₽</strong></p>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-danger" onclick="submitSell()">Продать</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<script>
+const stockPrice = {{ stock.price }};
+
+// Загрузка счетов пользователя
+function loadAccounts() {
+    // В реальном приложении здесь был бы AJAX-запрос для получения счетов
+    // Пока что используем заглушку
+}
+
+// Обновление общей стоимости при покупке
+document.getElementById('buyQuantity')?.addEventListener('input', function() {
+    const quantity = this.value;
+    const totalCost = quantity * stockPrice;
+    document.getElementById('totalCost').textContent = totalCost.toFixed(2) + ' ₽';
+});
+
+// Обновление общей суммы при продаже
+document.getElementById('sellQuantity')?.addEventListener('input', function() {
+    const quantity = this.value;
+    const totalRevenue = quantity * stockPrice;
+    document.getElementById('totalRevenue').textContent = totalRevenue.toFixed(2) + ' ₽';
+});
+
+function submitBuy() {
+    const accountId = document.getElementById('buyAccountSelect').value;
+    const quantity = document.getElementById('buyQuantity').value;
+    
+    if (!quantity || quantity <= 0) {
+        alert('Введите корректное количество акций');
+        return;
+    }
+    
+    fetch('/api/buy_stock', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            account_id: accountId,
+            stock_id: {{ stock.id }},
+            quantity: parseInt(quantity)
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Акции успешно куплены!');
+            location.reload();
+        } else {
+            alert('Ошибка: ' + data.error);
+        }
+    })
+    .catch(error => {
+        alert('Произошла ошибка: ' + error);
+    });
+}
+
+function submitSell() {
+    const accountId = document.getElementById('sellAccountSelect').value;
+    const quantity = document.getElementById('sellQuantity').value;
+    
+    if (!quantity || quantity <= 0) {
+        alert('Введите корректное количество акций');
+        return;
+    }
+    
+    fetch('/api/sell_stock', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            account_id: accountId,
+            stock_id: {{ stock.id }},
+            quantity: parseInt(quantity)
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Акции успешно проданы!');
+            location.reload();
+        } else {
+            alert('Ошибка: ' + data.error);
+        }
+    })
+    .catch(error => {
+        alert('Произошла ошибка: ' + error);
+    });
+}
+</script>
+{% endif %}
+{% endblock %}
