@@ -16,17 +16,48 @@ def init_routes(app):
         try:
             from database import Stock
             
+            # Сначала откатываем любую незавершенную транзакцию
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
+            
             # Проверяем, есть ли новые колонки
             try:
-                db.session.execute(db.text("SELECT logo_url FROM stock LIMIT 1"))
+                result = db.session.execute(db.text("SELECT logo_url FROM stock LIMIT 1"))
+                db.session.commit()
                 return jsonify({'status': 'success', 'message': 'Columns already exist'})
             except Exception:
-                # Добавляем колонки
+                db.session.rollback()
+                
+                # Добавляем колонки по одной с отдельными транзакциями
                 try:
-                    db.session.execute(db.text("ALTER TABLE stock ADD COLUMN IF NOT EXISTS logo_url VARCHAR(255)"))
-                    db.session.execute(db.text("ALTER TABLE stock ADD COLUMN IF NOT EXISTS sector VARCHAR(100)"))
-                    db.session.execute(db.text("ALTER TABLE stock ADD COLUMN IF NOT EXISTS description TEXT"))
-                    db.session.commit()
+                    # Добавляем logo_url
+                    try:
+                        db.session.execute(db.text("ALTER TABLE stock ADD COLUMN logo_url VARCHAR(255)"))
+                        db.session.commit()
+                    except Exception as e:
+                        db.session.rollback()
+                        if "already exists" not in str(e).lower():
+                            print(f"Error adding logo_url: {e}")
+                    
+                    # Добавляем sector
+                    try:
+                        db.session.execute(db.text("ALTER TABLE stock ADD COLUMN sector VARCHAR(100)"))
+                        db.session.commit()
+                    except Exception as e:
+                        db.session.rollback()
+                        if "already exists" not in str(e).lower():
+                            print(f"Error adding sector: {e}")
+                    
+                    # Добавляем description
+                    try:
+                        db.session.execute(db.text("ALTER TABLE stock ADD COLUMN description TEXT"))
+                        db.session.commit()
+                    except Exception as e:
+                        db.session.rollback()
+                        if "already exists" not in str(e).lower():
+                            print(f"Error adding description: {e}")
                     
                     # Обновляем существующие записи
                     stocks_to_update = [
@@ -42,24 +73,33 @@ def init_routes(app):
                         ('GMKN', 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9a/Nornickel_logo.svg/200px-Nornickel_logo.svg.png', 'Металлургия', 'Крупнейший производитель никеля и палладия')
                     ]
                     
-                    for ticker, logo_url, sector, description in stocks_to_update:
-                        db.session.execute(db.text(
-                            "UPDATE stock SET logo_url = :logo_url, sector = :sector, description = :description WHERE ticker = :ticker"
-                        ), {
-                            'ticker': ticker,
-                            'logo_url': logo_url,
-                            'sector': sector,
-                            'description': description
-                        })
-                    
-                    db.session.commit()
-                    return jsonify({'status': 'success', 'message': 'Migration completed successfully'})
+                    # Обновляем существующие записи
+                    try:
+                        for ticker, logo_url, sector, description in stocks_to_update:
+                            db.session.execute(db.text(
+                                "UPDATE stock SET logo_url = :logo_url, sector = :sector, description = :description WHERE ticker = :ticker"
+                            ), {
+                                'ticker': ticker,
+                                'logo_url': logo_url,
+                                'sector': sector,
+                                'description': description
+                            })
+                        
+                        db.session.commit()
+                        return jsonify({'status': 'success', 'message': 'Migration completed successfully'})
+                    except Exception as e:
+                        db.session.rollback()
+                        return jsonify({'status': 'error', 'message': f'Update failed: {str(e)}'})
                     
                 except Exception as e:
                     db.session.rollback()
                     return jsonify({'status': 'error', 'message': f'Migration failed: {str(e)}'})
                     
         except Exception as e:
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
             return jsonify({'status': 'error', 'message': f'Migration error: {str(e)}'})
     
     @app.route('/')
