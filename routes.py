@@ -10,6 +10,58 @@ def init_routes(app):
         """Health check endpoint для Render"""
         return jsonify({'status': 'ok', 'message': 'InvestBot is running'})
     
+    @app.route('/migrate')
+    def migrate():
+        """Принудительная миграция БД"""
+        try:
+            from database import Stock
+            
+            # Проверяем, есть ли новые колонки
+            try:
+                db.session.execute(db.text("SELECT logo_url FROM stock LIMIT 1"))
+                return jsonify({'status': 'success', 'message': 'Columns already exist'})
+            except Exception:
+                # Добавляем колонки
+                try:
+                    db.session.execute(db.text("ALTER TABLE stock ADD COLUMN IF NOT EXISTS logo_url VARCHAR(255)"))
+                    db.session.execute(db.text("ALTER TABLE stock ADD COLUMN IF NOT EXISTS sector VARCHAR(100)"))
+                    db.session.execute(db.text("ALTER TABLE stock ADD COLUMN IF NOT EXISTS description TEXT"))
+                    db.session.commit()
+                    
+                    # Обновляем существующие записи
+                    stocks_to_update = [
+                        ('SBER', 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/36/Sberbank_Logo.svg/200px-Sberbank_Logo.svg.png', 'Банки', 'Крупнейший банк России и Восточной Европы'),
+                        ('GAZP', 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3e/Gazprom-Logo.svg/200px-Gazprom-Logo.svg.png', 'Нефть и газ', 'Крупнейшая газовая компания мира'),
+                        ('LKOH', 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4d/Lukoil_logo.svg/200px-Lukoil_logo.svg.png', 'Нефть и газ', 'Одна из крупнейших нефтяных компаний мира'),
+                        ('YNDX', 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/58/Yandex_icon.svg/200px-Yandex_icon.svg.png', 'IT', 'Российская IT-компания, поисковая система'),
+                        ('ROSN', 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/79/Rosneft_logo.svg/200px-Rosneft_logo.svg.png', 'Нефть и газ', 'Крупнейшая нефтяная компания России'),
+                        ('NVTK', 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/99/Novatek_logo.svg/200px-Novatek_logo.svg.png', 'Нефть и газ', 'Крупнейший производитель природного газа в России'),
+                        ('TCSG', 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6f/Tinkoff_Bank_logo.svg/200px-Tinkoff_Bank_logo.svg.png', 'Банки', 'Частный банк, лидер в сфере цифрового банкинга'),
+                        ('RUAL', 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0c/Rusal_logo.svg/200px-Rusal_logo.svg.png', 'Металлургия', 'Крупнейший производитель алюминия в России'),
+                        ('MAGN', 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f4/MMK_logo.svg/200px-MMK_logo.svg.png', 'Металлургия', 'Магнитогорский металлургический комбинат'),
+                        ('GMKN', 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9a/Nornickel_logo.svg/200px-Nornickel_logo.svg.png', 'Металлургия', 'Крупнейший производитель никеля и палладия')
+                    ]
+                    
+                    for ticker, logo_url, sector, description in stocks_to_update:
+                        db.session.execute(db.text(
+                            "UPDATE stock SET logo_url = :logo_url, sector = :sector, description = :description WHERE ticker = :ticker"
+                        ), {
+                            'ticker': ticker,
+                            'logo_url': logo_url,
+                            'sector': sector,
+                            'description': description
+                        })
+                    
+                    db.session.commit()
+                    return jsonify({'status': 'success', 'message': 'Migration completed successfully'})
+                    
+                except Exception as e:
+                    db.session.rollback()
+                    return jsonify({'status': 'error', 'message': f'Migration failed: {str(e)}'})
+                    
+        except Exception as e:
+            return jsonify({'status': 'error', 'message': f'Migration error: {str(e)}'})
+    
     @app.route('/')
     def index():
         current_year = datetime.datetime.now().year
