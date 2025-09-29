@@ -24,8 +24,10 @@
                     <table class="table table-hover">
                         <thead>
                             <tr>
+                                <th>Логотип</th>
                                 <th>Тикер</th>
                                 <th>Название</th>
+                                <th>Сектор</th>
                                 <th>Цена</th>
                                 <th>Действия</th>
                             </tr>
@@ -33,17 +35,35 @@
                         <tbody>
                             {% for stock in stocks.items %}
                             <tr>
+                                <td>
+                                    {% if stock.logo_url %}
+                                        <img src="{{ stock.logo_url }}" alt="{{ stock.name }}" style="width: 40px; height: 40px; object-fit: contain;" class="rounded">
+                                    {% else %}
+                                        <div class="bg-secondary rounded d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                            <i class="fas fa-building text-white"></i>
+                                        </div>
+                                    {% endif %}
+                                </td>
                                 <td><strong>{{ stock.ticker }}</strong></td>
                                 <td>{{ stock.name }}</td>
                                 <td>
+                                    {% if stock.sector %}
+                                        <span class="badge bg-secondary">{{ stock.sector }}</span>
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
                                     {% if stock.price > 0 %}
-                                        {{ "%.2f"|format(stock.price) }} ₽
+                                        <strong>{{ "%.2f"|format(stock.price) }} ₽</strong>
                                     {% else %}
                                         <span class="text-muted">Н/Д</span>
                                     {% endif %}
                                 </td>
                                 <td>
-                                    <a href="{{ url_for('stock_detail', ticker=stock.ticker) }}" class="btn btn-sm btn-primary">Подробнее</a>
+                                    <a href="{{ url_for('stock_detail', ticker=stock.ticker) }}" class="btn btn-sm btn-primary">
+                                        <i class="fas fa-eye me-1"></i>Подробнее
+                                    </a>
                                 </td>
                             </tr>
                             {% endfor %}

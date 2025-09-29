@@ -20,6 +20,9 @@ class Stock(db.Model):
     ticker = db.Column(db.String(20), unique=True, nullable=False)
     name = db.Column(db.String(120), nullable=False)
     price = db.Column(db.Float, default=0.0)
+    logo_url = db.Column(db.String(255), nullable=True)
+    sector = db.Column(db.String(100), nullable=True)
+    description = db.Column(db.Text, nullable=True)
 
 class Transaction(db.Model):
     id = db.Column(db.Integer, primary_key=True)

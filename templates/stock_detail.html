@@ -16,7 +16,29 @@
     <div class="col-md-8">
         <div class="card">
             <div class="card-body">
-                <h2>{{ stock.ticker }} - {{ stock.name }}</h2>
+                <div class="d-flex align-items-center mb-4">
+                    {% if stock.logo_url %}
+                        <img src="{{ stock.logo_url }}" alt="{{ stock.name }}" style="width: 80px; height: 80px; object-fit: contain;" class="rounded me-3">
+                    {% else %}
+                        <div class="bg-secondary rounded d-flex align-items-center justify-content-center me-3" style="width: 80px; height: 80px;">
+                            <i class="fas fa-building text-white fa-2x"></i>
+                        </div>
+                    {% endif %}
+                    <div>
+                        <h2 class="mb-1">{{ stock.ticker }} - {{ stock.name }}</h2>
+                        {% if stock.sector %}
+                            <span class="badge bg-primary">{{ stock.sector }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                {% if stock.description %}
+                <div class="mb-4">
+                    <h6>О компании</h6>
+                    <p class="text-muted">{{ stock.description }}</p>
+                </div>
+                {% endif %}
+                
                 <div class="row mt-3">
                     <div class="col-md-6">
                         <h4 class="text-success">

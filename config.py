@@ -7,6 +7,14 @@ class Config:
     """Базовая конфигурация"""
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        'pool_pre_ping': True,
+        'pool_recycle': 300,
+        'connect_args': {
+            'sslmode': 'require',
+            'connect_timeout': 10
+        }
+    }
     
 class DevelopmentConfig(Config):
     """Конфигурация для разработки"""
