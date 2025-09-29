@@ -19,8 +19,6 @@ services:
       - key: WEB_APP_URL
         sync: false
     plan: free
-    runtime:
-      pythonVersion: 3.11
     healthCheckPath: /
 
 databases:
