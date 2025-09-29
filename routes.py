@@ -1,6 +1,6 @@
 from flask import render_template, request, jsonify, redirect, url_for, session
 from database import db, User, Account, Stock, Transaction
-from utils import calculate_portfolio_stats, get_top_stocks
+# from utils import calculate_portfolio_stats, get_top_stocks
 import datetime
 
 def init_routes(app):
@@ -13,7 +13,10 @@ def init_routes(app):
     @app.route('/')
     def index():
         current_year = datetime.datetime.now().year
-        return render_template('index.html', year=current_year)
+        try:
+            return render_template('index.html', year=current_year)
+        except Exception as e:
+            return jsonify({'error': str(e), 'message': 'Template error'}), 500
     
     @app.route('/login')
     def login():
@@ -52,7 +55,8 @@ def init_routes(app):
         accounts = Account.query.filter_by(user_id=user.id).all()
         
         # Получаем статистику портфеля
-        portfolio_stats = calculate_portfolio_stats(user.id)
+        # portfolio_stats = calculate_portfolio_stats(user.id)
+        portfolio_stats = {'total_balance': 0, 'positions': []}
         
         # Получаем последние транзакции
         recent_transactions = Transaction.query.join(Account).filter(
@@ -60,7 +64,8 @@ def init_routes(app):
         ).order_by(Transaction.timestamp.desc()).limit(10).all()
         
         # Получаем топ акций
-        top_stocks = get_top_stocks(5)
+        # top_stocks = get_top_stocks(5)
+        top_stocks = Stock.query.limit(5).all()
         
         return render_template('dashboard.html', 
                              user=user, 
