@@ -14,6 +14,25 @@ app = create_app('production')
 with app.app_context():
     try:
         from database import Stock
+        
+        # Проверяем, есть ли новые колонки в таблице stock
+        try:
+            # Пытаемся выполнить запрос с новыми колонками
+            db.session.execute(db.text("SELECT logo_url, sector, description FROM stock LIMIT 1"))
+            print("New columns already exist in stock table")
+        except Exception as e:
+            print(f"Adding new columns to stock table: {e}")
+            # Добавляем новые колонки
+            try:
+                db.session.execute(db.text("ALTER TABLE stock ADD COLUMN logo_url VARCHAR(255)"))
+                db.session.execute(db.text("ALTER TABLE stock ADD COLUMN sector VARCHAR(100)"))
+                db.session.execute(db.text("ALTER TABLE stock ADD COLUMN description TEXT"))
+                db.session.commit()
+                print("Successfully added new columns to stock table")
+            except Exception as alter_error:
+                print(f"Error adding columns: {alter_error}")
+                db.session.rollback()
+        
         db.create_all()
         print("Database tables created successfully!")
         
@@ -87,6 +106,35 @@ with app.app_context():
             
             db.session.commit()
             print(f"Added {len(test_stocks)} test stocks to database!")
+        else:
+            # Обновляем существующие акции новыми данными, если у них нет логотипов
+            existing_stocks = Stock.query.filter(Stock.logo_url.is_(None)).all()
+            if existing_stocks:
+                print(f"Updating {len(existing_stocks)} existing stocks with logos and descriptions...")
+                
+                # Словарь с данными для обновления
+                stock_updates = {
+                    'SBER': {'logo_url': 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/36/Sberbank_Logo.svg/200px-Sberbank_Logo.svg.png', 'sector': 'Банки', 'description': 'Крупнейший банк России и Восточной Европы'},
+                    'GAZP': {'logo_url': 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3e/Gazprom-Logo.svg/200px-Gazprom-Logo.svg.png', 'sector': 'Нефть и газ', 'description': 'Крупнейшая газовая компания мира'},
+                    'LKOH': {'logo_url': 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4d/Lukoil_logo.svg/200px-Lukoil_logo.svg.png', 'sector': 'Нефть и газ', 'description': 'Одна из крупнейших нефтяных компаний мира'},
+                    'YNDX': {'logo_url': 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/58/Yandex_icon.svg/200px-Yandex_icon.svg.png', 'sector': 'IT', 'description': 'Российская IT-компания, поисковая система'},
+                    'ROSN': {'logo_url': 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/79/Rosneft_logo.svg/200px-Rosneft_logo.svg.png', 'sector': 'Нефть и газ', 'description': 'Крупнейшая нефтяная компания России'},
+                    'NVTK': {'logo_url': 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/99/Novatek_logo.svg/200px-Novatek_logo.svg.png', 'sector': 'Нефть и газ', 'description': 'Крупнейший производитель природного газа в России'},
+                    'TCSG': {'logo_url': 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6f/Tinkoff_Bank_logo.svg/200px-Tinkoff_Bank_logo.svg.png', 'sector': 'Банки', 'description': 'Частный банк, лидер в сфере цифрового банкинга'},
+                    'RUAL': {'logo_url': 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0c/Rusal_logo.svg/200px-Rusal_logo.svg.png', 'sector': 'Металлургия', 'description': 'Крупнейший производитель алюминия в России'},
+                    'MAGN': {'logo_url': 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f4/MMK_logo.svg/200px-MMK_logo.svg.png', 'sector': 'Металлургия', 'description': 'Магнитогорский металлургический комбинат'},
+                    'GMKN': {'logo_url': 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9a/Nornickel_logo.svg/200px-Nornickel_logo.svg.png', 'sector': 'Металлургия', 'description': 'Крупнейший производитель никеля и палладия'}
+                }
+                
+                for stock in existing_stocks:
+                    if stock.ticker in stock_updates:
+                        update_data = stock_updates[stock.ticker]
+                        stock.logo_url = update_data['logo_url']
+                        stock.sector = update_data['sector']
+                        stock.description = update_data['description']
+                
+                db.session.commit()
+                print("Updated existing stocks with logos and descriptions!")
         
     except Exception as e:
         print(f"Error creating database tables: {e}")
