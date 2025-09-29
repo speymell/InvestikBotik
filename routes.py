@@ -83,8 +83,9 @@ def init_routes(app):
         query = Stock.query
         
         if search:
+            from sqlalchemy import or_
             query = query.filter(
-                db.or_(
+                or_(
                     Stock.ticker.contains(search.upper()),
                     Stock.name.contains(search)
                 )
