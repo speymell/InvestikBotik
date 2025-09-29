@@ -14,10 +14,10 @@ class DevelopmentConfig(Config):
     # Поддержка обоих форматов URL для Postgres (postgres:// и postgresql://)
     _db_url = os.environ.get('DATABASE_URL') or 'sqlite:///investbot.db'
     if _db_url.startswith('postgres://'):
-        # SQLAlchemy ожидает postgresql:// или postgresql+psycopg2://
-        _db_url = _db_url.replace('postgres://', 'postgresql+psycopg2://', 1)
-    elif _db_url.startswith('postgresql://') and '+psycopg2' not in _db_url:
-        _db_url = _db_url.replace('postgresql://', 'postgresql+psycopg2://', 1)
+        # SQLAlchemy с новым драйвером psycopg (версия 3)
+        _db_url = _db_url.replace('postgres://', 'postgresql+psycopg://', 1)
+    elif _db_url.startswith('postgresql://') and '+psycopg' not in _db_url:
+        _db_url = _db_url.replace('postgresql://', 'postgresql+psycopg://', 1)
     SQLALCHEMY_DATABASE_URI = _db_url
 
 class ProductionConfig(Config):
@@ -25,9 +25,9 @@ class ProductionConfig(Config):
     DEBUG = False
     _db_url = os.environ.get('DATABASE_URL') or 'sqlite:///investbot.db'
     if _db_url.startswith('postgres://'):
-        _db_url = _db_url.replace('postgres://', 'postgresql+psycopg2://', 1)
-    elif _db_url.startswith('postgresql://') and '+psycopg2' not in _db_url:
-        _db_url = _db_url.replace('postgresql://', 'postgresql+psycopg2://', 1)
+        _db_url = _db_url.replace('postgres://', 'postgresql+psycopg://', 1)
+    elif _db_url.startswith('postgresql://') and '+psycopg' not in _db_url:
+        _db_url = _db_url.replace('postgresql://', 'postgresql+psycopg://', 1)
     SQLALCHEMY_DATABASE_URI = _db_url
 
 class TestingConfig(Config):
