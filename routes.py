@@ -5,6 +5,11 @@ import datetime
 
 def init_routes(app):
     
+    @app.route('/health')
+    def health():
+        """Health check endpoint для Render"""
+        return jsonify({'status': 'ok', 'message': 'InvestBot is running'})
+    
     @app.route('/')
     def index():
         current_year = datetime.datetime.now().year

@@ -11,13 +11,14 @@ from database import db
 app = create_app('production')
 
 # На первом деплое в Render создадим таблицы, если их ещё нет
-with app.app_context():
-    try:
-        db.create_all()
-    except Exception as e:
-        # Не падаем при ошибке подключения к БД на этапе билда
-        # Логи можно посмотреть в Render Dashboard
-        pass
+# Временно отключено для диагностики
+# with app.app_context():
+#     try:
+#         db.create_all()
+#     except Exception as e:
+#         # Не падаем при ошибке подключения к БД на этапе билда
+#         # Логи можно посмотреть в Render Dashboard
+#         pass
 
 if __name__ == "__main__":
     app.run()
