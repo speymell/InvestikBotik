@@ -740,37 +740,49 @@ footer {
     }
 }
 
-/* Компактная статистика */
-.compact-stat {
-    padding: 1rem;
-    transition: all 0.3s ease;
+/* Компактная статистика - inline вид */
+.compact-stat-inline {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    border-radius: 8px;
+    transition: all 0.2s ease;
 }
 
-.compact-stat:hover {
-    transform: translateY(-2px);
+.compact-stat-inline:hover {
+    background-color: rgba(102, 126, 234, 0.05);
 }
 
-.compact-stat-label {
+[data-theme="dark"] .compact-stat-inline:hover {
+    background-color: rgba(144, 205, 244, 0.05);
+}
+
+.compact-stat-inline-label {
     font-size: 0.875rem;
-    font-weight: 500;
     color: #6c757d;
-    margin-bottom: 0.5rem;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+    font-weight: 500;
 }
 
-.compact-stat-value {
-    font-size: 1.5rem;
+.compact-stat-inline-value {
+    font-size: 1.125rem;
     font-weight: 700;
     color: #2d3748;
 }
 
-[data-theme="dark"] .compact-stat-value {
+[data-theme="dark"] .compact-stat-inline-label {
+    color: #a0aec0;
+}
+
+[data-theme="dark"] .compact-stat-inline-value {
     color: #e2e8f0;
 }
 
-[data-theme="dark"] .compact-stat-label {
-    color: #a0aec0;
+@media (max-width: 768px) {
+    .compact-stat-inline {
+        flex: 1 1 100%;
+        justify-content: space-between;
+    }
 }
 
 /* Популярные акции */
@@ -1097,6 +1109,35 @@ footer {
     font-size: 1rem;
     font-weight: 500;
     color: #e2e8f0;
+}
+
+/* Темная тема для breadcrumb */
+[data-theme="dark"] .breadcrumb {
+    background-color: #2d3748;
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+}
+
+[data-theme="dark"] .breadcrumb-item {
+    color: #a0aec0;
+}
+
+[data-theme="dark"] .breadcrumb-item.active {
+    color: #90cdf4;
+}
+
+[data-theme="dark"] .breadcrumb-item + .breadcrumb-item::before {
+    color: #718096;
+}
+
+[data-theme="dark"] .breadcrumb-item a {
+    color: #90cdf4;
+    text-decoration: none;
+}
+
+[data-theme="dark"] .breadcrumb-item a:hover {
+    color: #63b3ed;
+    text-decoration: underline;
 }
 
 /* Адаптивность */

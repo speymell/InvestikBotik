@@ -115,26 +115,18 @@ class StockAPIService:
     
     def _get_logo_url(self, ticker):
         """Получает URL логотипа для тикера"""
-        try:
-            # Пытаемся получить логотип с MOEX API
-            logo_url = self._fetch_logo_from_moex(ticker)
-            if logo_url:
-                return logo_url
-        except Exception as e:
-            logger.warning(f"Не удалось получить логотип с MOEX для {ticker}: {e}")
-        
-        # Последний fallback: генерируем логотип через UI Avatars API
-        company_name = self._get_company_short_name(ticker)
-        
-        # Генерируем цвет на основе хэша тикера для стабильности
+        # Просто генерируем логотип через UI Avatars API для стабильности
         import hashlib
+        import urllib.parse
+        
+        # Генерируем цвет на основе хэша тикера
         hash_object = hashlib.md5(ticker.encode())
         hash_hex = hash_object.hexdigest()
         bg_color = hash_hex[:6]  # Берем первые 6 символов хэша как цвет
         
-        avatar_url = f"https://ui-avatars.com/api/?name={company_name}&size=96&background={bg_color}&color=fff&bold=true"
+        # Используем тикер как текст на логотипе
+        avatar_url = f"https://ui-avatars.com/api/?name={urllib.parse.quote(ticker)}&size=96&background={bg_color}&color=fff&bold=true&font-size=0.45"
         
-        logger.info(f"Используем сгенерированный логотип для {ticker}: {avatar_url}")
         return avatar_url
     
     def _fetch_logo_from_moex(self, ticker):

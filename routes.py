@@ -639,9 +639,15 @@ def init_routes(app):
         if 'user_id' not in session:
             return jsonify({'error': 'Не авторизован'}), 401
         
-        data = request.get_json()
-        account_id = data.get('account_id')
-        amount = float(data.get('amount', 0))
+        try:
+            data = request.get_json()
+            if not data:
+                return jsonify({'error': 'Некорректные данные запроса'}), 400
+            
+            account_id = data.get('account_id')
+            amount = float(data.get('amount', 0))
+        except Exception as e:
+            return jsonify({'error': f'Ошибка обработки данных: {str(e)}'}), 400
         
         if amount <= 0:
             return jsonify({'error': 'Сумма должна быть положительной'}), 400
