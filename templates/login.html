@@ -25,9 +25,12 @@
                     </p>
                 </div>
 
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script>
     // Проверяем, запущено ли приложение в Telegram Web App
     function checkTelegramWebApp() {
+        console.log('Проверка Telegram Web App...');
+        
         // Сначала проверяем URL параметры (если пришли из Telegram)
         const urlParams = new URLSearchParams(window.location.search);
         const telegramId = urlParams.get('telegram_id');
@@ -42,9 +45,14 @@
         // Проверяем наличие Telegram Web App API
         if (window.Telegram && window.Telegram.WebApp) {
             const tg = window.Telegram.WebApp;
+            console.log('Telegram Web App доступен:', tg);
+            
+            // Расширяем приложение на весь экран
+            tg.expand();
             
             // Получаем данные пользователя
             const user = tg.initDataUnsafe?.user;
+            console.log('Данные пользователя:', user);
             
             if (user && user.id) {
                 console.log('Найден Telegram Web App пользователь:', user);
@@ -57,10 +65,37 @@
                 window.location.href = `/login?${params.toString()}`;
                 return;
             }
+            
+            // Показываем кнопку для входа через Telegram
+            const loginOptions = document.getElementById('loginOptions');
+            const telegramBtn = document.createElement('button');
+            telegramBtn.className = 'btn btn-info btn-lg mb-2';
+            telegramBtn.innerHTML = '<i class="fab fa-telegram-plane me-2"></i>Войти через Telegram';
+            telegramBtn.onclick = function() {
+                // Пытаемся получить данные пользователя еще раз
+                if (tg.initDataUnsafe?.user) {
+                    const user = tg.initDataUnsafe.user;
+                    const params = new URLSearchParams({
+                        telegram_id: user.id,
+                        username: user.username || user.first_name || 'User'
+                    });
+                    window.location.href = `/login?${params.toString()}`;
+                } else {
+                    alert('Не удалось получить данные пользователя Telegram');
+                }
+            };
+            
+            loginOptions.insertBefore(telegramBtn, loginOptions.firstChild);
+            
+            // Обновляем информационное сообщение
+            const loginInfo = document.getElementById('loginInfo');
+            loginInfo.innerHTML = 'Приложение запущено в Telegram. Используйте кнопку выше для входа или демо-режим для тестирования.';
+        } else {
+            console.log('Telegram Web App API недоступен');
+            // Показываем сообщение о том, что лучше открыть в Telegram
+            const loginInfo = document.getElementById('loginInfo');
+            loginInfo.innerHTML = 'Для полного функционала откройте приложение через Telegram бота. Сейчас доступен только демо-режим.';
         }
-        
-        // НЕ показываем никаких сообщений о Telegram браузере
-        // Пользователь уже зашел через Telegram, если есть параметры или Web App
     }
 
     // Запускаем проверку при загрузке страницы

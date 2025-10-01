@@ -430,6 +430,15 @@ def init_routes(app):
     def index():
         current_year = datetime.datetime.now().year
         try:
+            # Автоматически синхронизируем акции если их мало
+            stock_count = Stock.query.count()
+            if stock_count < 50:
+                try:
+                    from stock_api import stock_api_service
+                    stock_api_service.sync_stocks_to_database()
+                except Exception:
+                    pass  # Игнорируем ошибки синхронизации
+            
             return render_template('index.html', year=current_year)
         except Exception as e:
             # Возвращаем детальную информацию об ошибке

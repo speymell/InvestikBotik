@@ -10,8 +10,13 @@
 """
 
 import logging
+import os
+from dotenv import load_dotenv
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 from telegram.ext import Application, CommandHandler, ContextTypes
+
+# Загружаем переменные окружения
+load_dotenv()
 
 # Настройка логирования
 logging.basicConfig(
@@ -19,11 +24,9 @@ logging.basicConfig(
     level=logging.INFO
 )
 
-# Замените на ваш токен бота
-BOT_TOKEN = "YOUR_BOT_TOKEN"
-
-# URL вашего веб-приложения
-WEB_APP_URL = "http://localhost:5000"
+# Получаем настройки из переменных окружения
+BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
+WEB_APP_URL = os.environ.get('WEB_APP_URL', 'http://localhost:5000')
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Обработчик команды /start"""
@@ -123,10 +126,11 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
 def main() -> None:
     """Запуск бота"""
-    if BOT_TOKEN == "YOUR_BOT_TOKEN":
+    if not BOT_TOKEN or BOT_TOKEN == "YOUR_BOT_TOKEN":
         print("❌ Ошибка: Необходимо указать токен бота!")
         print("1. Создайте бота через @BotFather")
-        print("2. Замените YOUR_BOT_TOKEN в коде на ваш токен")
+        print("2. Создайте файл .env и укажите TELEGRAM_BOT_TOKEN=ваш_токен")
+        print("3. Или установите переменную окружения TELEGRAM_BOT_TOKEN")
         return
     
     # Создаем приложение

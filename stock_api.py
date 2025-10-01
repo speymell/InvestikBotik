@@ -77,7 +77,8 @@ class StockAPIService:
                             'name': shortname,
                             'price': price,
                             'sector': self._get_sector_by_ticker(secid),
-                            'description': f"Российская акция {shortname}"
+                            'description': f"Российская акция {shortname}",
+                            'logo_url': self._get_logo_url(secid)
                         })
                         
                 except Exception as e:
@@ -112,9 +113,174 @@ class StockAPIService:
         
         return sector_map.get(ticker, 'Прочее')
     
+    def _get_logo_url(self, ticker):
+        """Получает URL логотипа для тикера"""
+        try:
+            # Пытаемся получить логотип с MOEX API
+            logo_url = self._fetch_logo_from_moex(ticker)
+            if logo_url:
+                return logo_url
+        except Exception as e:
+            logger.warning(f"Не удалось получить логотип с MOEX для {ticker}: {e}")
+        
+        # Последний fallback: генерируем логотип через UI Avatars API
+        company_name = self._get_company_short_name(ticker)
+        avatar_url = f"https://ui-avatars.com/api/?name={company_name}&size=96&background=random&color=fff&bold=true"
+        
+        logger.info(f"Используем сгенерированный логотип для {ticker}: {avatar_url}")
+        return avatar_url
+    
+    def _fetch_logo_from_moex(self, ticker):
+        """Пытается получить логотип компании с различных API"""
+        try:
+            # 1. Пробуем получить с MOEX (расширенная информация о компании)
+            moex_url = f"{self.moex_base_url}/securities/{ticker}.json?iss.meta=off"
+            response = self.session.get(moex_url, timeout=5)
+            
+            if response.status_code == 200:
+                data = response.json()
+                # Ищем дополнительную информацию о компании
+                if 'description' in data:
+                    # MOEX может предоставлять ссылки на сайты компаний
+                    pass
+            
+            # 2. Пробуем Alpha Vantage API (бесплатный, но нужен ключ)
+            # alpha_logo = self._try_alpha_vantage_logo(ticker)
+            # if alpha_logo:
+            #     return alpha_logo
+            
+            # 3. Пробуем Yahoo Finance (неофициальное API)
+            yahoo_logo = self._try_yahoo_finance_logo(ticker)
+            if yahoo_logo:
+                return yahoo_logo
+                
+            # 4. Пробуем Clearbit Logo API (бесплатный для базового использования)
+            clearbit_logo = self._try_clearbit_logo(ticker)
+            if clearbit_logo:
+                return clearbit_logo
+                
+            # 5. Пробуем Financial Modeling Prep API (бесплатный лимит)
+            fmp_logo = self._try_fmp_logo(ticker)
+            if fmp_logo:
+                return fmp_logo
+                
+        except Exception as e:
+            logger.warning(f"Ошибка получения логотипа для {ticker}: {e}")
+        
+        return None
+    
+    def _try_yahoo_finance_logo(self, ticker):
+        """Пытается получить логотип с Yahoo Finance"""
+        try:
+            # Yahoo Finance иногда предоставляет логотипы
+            # Формат: https://logo.clearbit.com/{domain}
+            company_domains = {
+                'SBER': 'sberbank.ru',
+                'GAZP': 'gazprom.ru', 
+                'LKOH': 'lukoil.ru',
+                'YNDX': 'yandex.ru',
+                'ROSN': 'rosneft.ru',
+                'NVTK': 'novatek.ru',
+                'TCSG': 'tinkoff.ru',
+                'VTBR': 'vtb.ru',
+                'GMKN': 'nornickel.com',
+                'MTSS': 'mts.ru'
+            }
+            
+            domain = company_domains.get(ticker)
+            if domain:
+                logo_url = f"https://logo.clearbit.com/{domain}"
+                # Проверяем, что логотип существует
+                response = self.session.head(logo_url, timeout=3)
+                if response.status_code == 200:
+                    return logo_url
+                    
+        except Exception:
+            pass
+        return None
+    
+    def _try_clearbit_logo(self, ticker):
+        """Пытается получить логотип через Clearbit Logo API"""
+        try:
+            # Clearbit предоставляет бесплатные логотипы по доменам
+            company_domains = {
+                'SBER': 'sberbank.com',
+                'GAZP': 'gazprom.com', 
+                'LKOH': 'lukoil.com',
+                'YNDX': 'yandex.com',
+                'ROSN': 'rosneft.com',
+                'NVTK': 'novatek.ru',
+                'TCSG': 'tinkoff.ru',
+                'VTBR': 'vtb.ru',
+                'GMKN': 'nornickel.com',
+                'MTSS': 'mts.ru',
+                'MAGN': 'mmk.ru',
+                'NLMK': 'nlmk.com',
+                'MOEX': 'moex.com',
+                'AFLT': 'aeroflot.ru'
+            }
+            
+            domain = company_domains.get(ticker)
+            if domain:
+                # Clearbit Logo API
+                logo_url = f"https://logo.clearbit.com/{domain}?size=96"
+                
+                # Проверяем доступность логотипа
+                response = self.session.head(logo_url, timeout=3)
+                if response.status_code == 200:
+                    return logo_url
+                    
+        except Exception:
+            pass
+        return None
+    
+    def _try_fmp_logo(self, ticker):
+        """Пытается получить логотип через Financial Modeling Prep API"""
+        try:
+            # FMP предоставляет логотипы компаний
+            # Нужно сопоставить российские тикеры с международными
+            international_tickers = {
+                'SBER': 'SBER.ME',  # Московская биржа
+                'GAZP': 'GAZP.ME',
+                'LKOH': 'LKOH.ME', 
+                'ROSN': 'ROSN.ME',
+                'NVTK': 'NVTK.ME',
+                'GMKN': 'GMKN.ME',
+                'MTSS': 'MTSS.ME'
+            }
+            
+            international_ticker = international_tickers.get(ticker)
+            if international_ticker:
+                # FMP API для логотипов (бесплатный лимит 250 запросов в день)
+                fmp_url = f"https://financialmodelingprep.com/image-stock/{international_ticker}.png"
+                
+                # Проверяем доступность
+                response = self.session.head(fmp_url, timeout=3)
+                if response.status_code == 200:
+                    return fmp_url
+                    
+        except Exception:
+            pass
+        return None
+    
+    def _get_company_short_name(self, ticker):
+        """Получает короткое название компании для генерации аватара"""
+        name_map = {
+            'SBER': 'СБ', 'GAZP': 'ГП', 'LKOH': 'ЛК', 'YNDX': 'ЯН',
+            'ROSN': 'РН', 'NVTK': 'НВ', 'TCSG': 'ТК', 'VTBR': 'ВТБ',
+            'GMKN': 'ГМК', 'MTSS': 'МТС', 'MAGN': 'ММК', 'NLMK': 'НЛМ',
+            'CHMF': 'СМ', 'ALRS': 'АЛР', 'TATN': 'ТАТ', 'SNGS': 'СГС',
+            'MOEX': 'МБ', 'AFLT': 'АФ', 'PHOR': 'ФОС', 'FEES': 'ФСК',
+            'HYDR': 'ГЭС', 'IRAO': 'ИРА', 'PIKK': 'ПИК', 'FIVE': '5Р',
+            'MGNT': 'МАГ', 'OZON': 'ОЗ', 'MAIL': 'МР', 'RTKM': 'РТК',
+            'PLZL': 'ПЛЗ', 'RUAL': 'РУС'
+        }
+        
+        return name_map.get(ticker, ticker[:2])
+    
     def _get_fallback_stocks(self):
         """Резервный список акций на случай недоступности API"""
-        return [
+        fallback_stocks = [
             {'ticker': 'SBER', 'name': 'ПАО Сбербанк', 'price': 280.50, 'sector': 'Банки', 'description': 'Крупнейший банк России'},
             {'ticker': 'GAZP', 'name': 'ПАО Газпром', 'price': 128.75, 'sector': 'Нефть и газ', 'description': 'Крупнейшая газовая компания'},
             {'ticker': 'LKOH', 'name': 'ЛУКОЙЛ', 'price': 6850.00, 'sector': 'Нефть и газ', 'description': 'Нефтяная компания'},
@@ -126,6 +292,12 @@ class StockAPIService:
             {'ticker': 'GMKN', 'name': 'ГМК Норникель', 'price': 15680.00, 'sector': 'Металлургия', 'description': 'Горно-металлургическая компания'},
             {'ticker': 'MTSS', 'name': 'МТС', 'price': 285.40, 'sector': 'Телеком', 'description': 'Мобильные телесистемы'}
         ]
+        
+        # Добавляем логотипы к fallback акциям
+        for stock in fallback_stocks:
+            stock['logo_url'] = self._get_logo_url(stock['ticker'])
+        
+        return fallback_stocks
     
     def update_stock_prices(self):
         """Обновляет цены существующих акций"""
@@ -206,8 +378,10 @@ class StockAPIService:
                         existing_stock.name = stock_data['name']
                         existing_stock.price = stock_data['price']
                         existing_stock.sector = stock_data['sector']
-                        if stock_data['description']:
+                        if stock_data.get('description'):
                             existing_stock.description = stock_data['description']
+                        if stock_data.get('logo_url'):
+                            existing_stock.logo_url = stock_data['logo_url']
                         updated_count += 1
                     else:
                         # Добавляем новую акцию
@@ -216,7 +390,8 @@ class StockAPIService:
                             name=stock_data['name'],
                             price=stock_data['price'],
                             sector=stock_data['sector'],
-                            description=stock_data['description']
+                            description=stock_data.get('description', ''),
+                            logo_url=stock_data.get('logo_url', '')
                         )
                         db.session.add(new_stock)
                         added_count += 1
