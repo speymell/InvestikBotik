@@ -10,6 +10,96 @@ def init_routes(app):
         """Health check endpoint для Render"""
         return jsonify({'status': 'ok', 'message': 'InvestBot is running'})
     
+    @app.route('/admin/update-stocks')
+    def update_stocks():
+        """Обновление акций на продакшене"""
+        try:
+            # Проверяем, есть ли уже акции
+            existing_count = Stock.query.count()
+            
+            if existing_count >= 20:
+                return jsonify({
+                    'status': 'info', 
+                    'message': f'Акции уже обновлены. Всего: {existing_count} акций'
+                })
+            
+            # Добавляем новые акции
+            new_stocks = [
+                Stock(
+                    ticker='NVTK', name='НОВАТЭК', price=1125.40,
+                    logo_url='https://upload.wikimedia.org/wikipedia/commons/thumb/9/99/Novatek_logo.svg/200px-Novatek_logo.svg.png',
+                    sector='Нефть и газ', description='Крупнейший производитель природного газа в России'
+                ),
+                Stock(
+                    ticker='TCSG', name='TCS Group', price=2890.60,
+                    logo_url='https://upload.wikimedia.org/wikipedia/commons/thumb/6/6f/Tinkoff_Bank_logo.svg/200px-Tinkoff_Bank_logo.svg.png',
+                    sector='Банки', description='Частный банк, лидер в сфере цифрового банкинга'
+                ),
+                Stock(
+                    ticker='RUAL', name='РУСАЛ', price=45.85,
+                    logo_url='https://upload.wikimedia.org/wikipedia/commons/thumb/0/0c/Rusal_logo.svg/200px-Rusal_logo.svg.png',
+                    sector='Металлургия', description='Крупнейший производитель алюминия в России'
+                ),
+                Stock(
+                    ticker='MAGN', name='ММК', price=52.30,
+                    logo_url='https://upload.wikimedia.org/wikipedia/commons/thumb/f/f4/MMK_logo.svg/200px-MMK_logo.svg.png',
+                    sector='Металлургия', description='Магнитогорский металлургический комбинат'
+                ),
+                Stock(
+                    ticker='GMKN', name='ГМК Норникель', price=15680.00,
+                    logo_url='https://upload.wikimedia.org/wikipedia/commons/thumb/9/9a/Nornickel_logo.svg/200px-Nornickel_logo.svg.png',
+                    sector='Металлургия', description='Крупнейший производитель никеля и палладия'
+                ),
+                Stock(
+                    ticker='PLZL', name='Полюс', price=12450.00,
+                    logo_url='https://upload.wikimedia.org/wikipedia/commons/thumb/a/a8/Polyus_logo.svg/200px-Polyus_logo.svg.png',
+                    sector='Металлургия', description='Крупнейший производитель золота в России'
+                ),
+                Stock(
+                    ticker='TATN', name='Татнефть', price=685.20,
+                    logo_url='https://upload.wikimedia.org/wikipedia/commons/thumb/d/d5/Tatneft_logo.svg/200px-Tatneft_logo.svg.png',
+                    sector='Нефть и газ', description='Крупная нефтяная компания Татарстана'
+                ),
+                Stock(
+                    ticker='SNGS', name='Сургутнефтегаз', price=28.45,
+                    logo_url='https://upload.wikimedia.org/wikipedia/commons/thumb/8/8c/Surgutneftegas_logo.svg/200px-Surgutneftegas_logo.svg.png',
+                    sector='Нефть и газ', description='Нефтегазовая компания Западной Сибири'
+                ),
+                Stock(
+                    ticker='VTBR', name='ВТБ', price=85.60,
+                    logo_url='https://upload.wikimedia.org/wikipedia/commons/thumb/f/f8/VTB_logo.svg/200px-VTB_logo.svg.png',
+                    sector='Банки', description='Второй по величине банк России'
+                ),
+                Stock(
+                    ticker='ALRS', name='АЛРОСА', price=78.90,
+                    logo_url='https://upload.wikimedia.org/wikipedia/commons/thumb/1/1e/Alrosa_logo.svg/200px-Alrosa_logo.svg.png',
+                    sector='Металлургия', description='Крупнейшая алмазодобывающая компания мира'
+                )
+            ]
+            
+            added_count = 0
+            for stock in new_stocks:
+                # Проверяем, не существует ли уже такая акция
+                existing = Stock.query.filter_by(ticker=stock.ticker).first()
+                if not existing:
+                    db.session.add(stock)
+                    added_count += 1
+            
+            db.session.commit()
+            
+            total_count = Stock.query.count()
+            return jsonify({
+                'status': 'success', 
+                'message': f'Добавлено {added_count} новых акций. Всего: {total_count} акций'
+            })
+            
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({
+                'status': 'error', 
+                'message': f'Ошибка обновления: {str(e)}'
+            }), 500
+    
     @app.route('/test')
     def test():
         """Test endpoint"""
