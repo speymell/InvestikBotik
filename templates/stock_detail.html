@@ -1,6 +1,15 @@
 {% extends 'layout.html' %}
 
 {% block content %}
+<!-- Кнопка "Назад" -->
+<div class="row mb-3">
+    <div class="col-md-12">
+        <button class="btn btn-outline-secondary" onclick="goBack()">
+            <i class="fas fa-arrow-left me-2"></i>Назад
+        </button>
+    </div>
+</div>
+
 <div class="row">
     <div class="col-md-12">
         <nav aria-label="breadcrumb">
@@ -10,6 +19,7 @@
             </ol>
         </nav>
     </div>
+{{ ... }}
 </div>
 
 <div class="row">
@@ -212,6 +222,18 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+<script>
+// Функция для кнопки "Назад"
+function goBack() {
+    // Проверяем, есть ли история браузера
+    if (window.history.length > 1) {
+        window.history.back();
+    } else {
+        // Если истории нет, переходим к списку акций
+        window.location.href = "{{ url_for('stocks') }}";
+    }
+}
+</script>
 <script>
 let stockPrice = {{ stock.price }};
 const ticker = '{{ stock.ticker }}';
