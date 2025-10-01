@@ -57,7 +57,7 @@
                                 <span class="text-muted">Цена не доступна</span>
                             {% endif %}
                         </h4>
-                        <div class="row align-items-center">
+                        <div class="row align-items-center d-none d-md-flex">
                             <div class="col-md-12 text-center">
                                 <span id="priceUpdateIndicator" class="badge bg-success">
                                     <i class="fas fa-wifi"></i> Цена обновляется автоматически
@@ -69,15 +69,15 @@
                 <div class="mt-4">
                     <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                         <h6 class="mb-0">График изменения цены</h6>
-                        <div class="d-flex gap-1 flex-wrap">
-                            <div class="btn-group" role="group" aria-label="Таймфрейм">
-                                <button type="button" class="btn btn-outline-primary btn-sm active" onclick="changeTimeframe('1D')">1Д</button>
-                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="changeTimeframe('1W')">1Н</button>
-                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="changeTimeframe('1M')">1М</button>
-                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="changeTimeframe('3M')">3М</button>
+                        <div class="d-flex gap-1 flex-wrap" style="flex-shrink: 0;">
+                            <div class="btn-group btn-group-sm" role="group" aria-label="Таймфрейм">
+                                <button type="button" class="btn btn-outline-primary active" onclick="changeTimeframe('1D')" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">1Д</button>
+                                <button type="button" class="btn btn-outline-primary" onclick="changeTimeframe('1W')" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">1Н</button>
+                                <button type="button" class="btn btn-outline-primary" onclick="changeTimeframe('1M')" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">1М</button>
+                                <button type="button" class="btn btn-outline-primary" onclick="changeTimeframe('3M')" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">3М</button>
                             </div>
-                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="resetZoom()" title="Сбросить масштаб">
-                                <i class="fas fa-expand-arrows-alt"></i>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="resetZoom()" title="Сбросить масштаб" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">
+                                <i class="fas fa-undo"></i>
                             </button>
                         </div>
                     </div>
@@ -127,14 +127,19 @@
                 <h5>Торговые операции</h5>
             </div>
             <div class="card-body">
-                <button class="btn btn-success btn-block mb-2" data-bs-toggle="modal" data-bs-target="#buyModal">
-                    Купить
-                </button>
-                {% if user_positions and user_positions.quantity > 0 %}
-                <button class="btn btn-danger btn-block" data-bs-toggle="modal" data-bs-target="#sellModal">
-                    Продать
-                </button>
-                {% endif %}
+                <div class="d-grid gap-2">
+                    <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#buyModal">
+                        <i class="fas fa-shopping-cart me-2"></i>Купить сейчас
+                    </button>
+                    <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#historicalBuyModal">
+                        <i class="fas fa-history me-2"></i>Добавить из прошлого
+                    </button>
+                    {% if user_positions and user_positions.quantity > 0 %}
+                    <button class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#sellModal">
+                        <i class="fas fa-hand-holding-usd me-2"></i>Продать
+                    </button>
+                    {% endif %}
+                </div>
             </div>
         </div>
         {% else %}
@@ -214,6 +219,59 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
                 <button type="button" class="btn btn-danger" onclick="submitSell()">Продать</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal для исторической покупки -->
+<div class="modal fade" id="historicalBuyModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-history me-2"></i>Добавить историческую покупку {{ stock.ticker }}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Здесь вы можете добавить покупку акций, которую вы совершили ранее. Баланс счета не изменится.
+                </div>
+                <form id="historicalBuyForm">
+                    <div class="mb-3">
+                        <label for="historicalBuyAccountSelect" class="form-label">Выберите счет</label>
+                        <select class="form-select" id="historicalBuyAccountSelect" required>
+                            <!-- Будет заполнено через AJAX -->
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="historicalBuyDate" class="form-label">Дата покупки</label>
+                        <input type="date" class="form-control" id="historicalBuyDate" required max="{{ today }}">
+                        <small class="text-muted">Укажите дату, когда вы купили акции</small>
+                    </div>
+                    <div class="mb-3">
+                        <label for="historicalBuyQuantity" class="form-label">Количество акций</label>
+                        <input type="number" class="form-control" id="historicalBuyQuantity" min="1" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="historicalBuyPrice" class="form-label">Цена за акцию (на тот момент)</label>
+                        <input type="number" class="form-control" id="historicalBuyPrice" step="0.01" min="0.01" required>
+                        <small class="text-muted">Текущая цена: {{ "%.2f"|format(stock.price) }} ₽</small>
+                    </div>
+                    <div class="mb-3">
+                        <div class="alert alert-secondary">
+                            <strong>Общая стоимость:</strong> <span id="historicalTotalCost">0.00 ₽</span>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-primary" onclick="submitHistoricalBuy()">
+                    <i class="fas fa-plus-circle me-2"></i>Добавить покупку
+                </button>
             </div>
         </div>
     </div>
@@ -310,16 +368,23 @@ function initChart() {
                 zoom: {
                     pan: {
                         enabled: true,
-                        mode: 'x'
+                        mode: 'x',
+                        modifierKey: null // Разрешить pan без клавиш на мобильных
                     },
                     zoom: {
                         wheel: {
                             enabled: true,
                         },
                         pinch: {
-                            enabled: true
+                            enabled: true // Включаем pinch zoom для тач-устройств
+                        },
+                        drag: {
+                            enabled: false // Отключаем drag zoom, чтобы не конфликтовало с pan
                         },
                         mode: 'x',
+                    },
+                    limits: {
+                        x: {min: 'original', max: 'original'}
                     }
                 }
             },
@@ -501,7 +566,111 @@ chartUpdateInterval = setInterval(updatePrice, 30000);
 document.addEventListener('DOMContentLoaded', function() {
     initChart();
     updatePrice();
+    
+    // Загружаем счета для селекта
+    loadAccounts();
 });
+
+// Загрузка списка счетов
+function loadAccounts() {
+    fetch('/api/accounts')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.accounts) {
+                const buySelect = document.getElementById('buyAccountSelect');
+                const sellSelect = document.getElementById('sellAccountSelect');
+                const historicalBuySelect = document.getElementById('historicalBuyAccountSelect');
+                
+                if (buySelect) {
+                    buySelect.innerHTML = '';
+                    data.accounts.forEach(account => {
+                        const option = document.createElement('option');
+                        option.value = account.id;
+                        option.textContent = `${account.name} (${account.balance.toFixed(2)} ₽)`;
+                        buySelect.appendChild(option);
+                    });
+                }
+                
+                if (sellSelect) {
+                    sellSelect.innerHTML = '';
+                    data.accounts.forEach(account => {
+                        const option = document.createElement('option');
+                        option.value = account.id;
+                        option.textContent = `${account.name} (${account.balance.toFixed(2)} ₽)`;
+                        sellSelect.appendChild(option);
+                    });
+                }
+                
+                if (historicalBuySelect) {
+                    historicalBuySelect.innerHTML = '';
+                    data.accounts.forEach(account => {
+                        const option = document.createElement('option');
+                        option.value = account.id;
+                        option.textContent = account.name;
+                        historicalBuySelect.appendChild(option);
+                    });
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Ошибка загрузки счетов:', error);
+        });
+}
+
+// Автоматический расчет общей стоимости для исторической покупки
+function updateHistoricalTotalCost() {
+    const quantity = parseFloat(document.getElementById('historicalBuyQuantity').value) || 0;
+    const price = parseFloat(document.getElementById('historicalBuyPrice').value) || 0;
+    const totalCost = quantity * price;
+    document.getElementById('historicalTotalCost').textContent = totalCost.toFixed(2) + ' ₽';
+}
+
+document.getElementById('historicalBuyQuantity')?.addEventListener('input', updateHistoricalTotalCost);
+document.getElementById('historicalBuyPrice')?.addEventListener('input', updateHistoricalTotalCost);
+
+// Добавление исторической покупки
+function submitHistoricalBuy() {
+    const accountId = document.getElementById('historicalBuyAccountSelect').value;
+    const quantity = document.getElementById('historicalBuyQuantity').value;
+    const price = document.getElementById('historicalBuyPrice').value;
+    const purchaseDate = document.getElementById('historicalBuyDate').value;
+    
+    if (!accountId || !quantity || !price || !purchaseDate) {
+        alert('Заполните все поля');
+        return;
+    }
+    
+    if (quantity <= 0 || price <= 0) {
+        alert('Количество и цена должны быть положительными');
+        return;
+    }
+    
+    fetch('/api/add_historical_buy', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            account_id: accountId,
+            stock_id: {{ stock.id }},
+            quantity: parseInt(quantity),
+            price: parseFloat(price),
+            purchase_date: purchaseDate
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Историческая покупка успешно добавлена!\nОбщая стоимость: ' + data.total_cost.toFixed(2) + ' ₽');
+            location.reload();
+        } else {
+            alert('Ошибка: ' + data.error);
+        }
+    })
+    .catch(error => {
+        alert('Произошла ошибка: ' + error);
+    });
+}
 
 // Очистка интервала при уходе со страницы
 window.addEventListener('beforeunload', function() {

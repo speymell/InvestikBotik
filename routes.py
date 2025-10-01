@@ -606,9 +606,13 @@ def init_routes(app):
                     'profit_loss_percent': profit_loss_percent
                 }
         
+        from datetime import datetime as dt
+        today = dt.now().strftime('%Y-%m-%d')
+        
         return render_template('stock_detail.html', 
                              stock=stock, 
-                             user_positions=user_positions)
+                             user_positions=user_positions,
+                             today=today)
     
     @app.route('/account/<int:account_id>')
     def account_detail(account_id):
@@ -751,6 +755,69 @@ def init_routes(app):
         
         return jsonify({'success': True, 'new_balance': account.balance})
     
+    @app.route('/api/add_historical_buy', methods=['POST'])
+    def add_historical_buy():
+        """API для добавления исторической покупки акций"""
+        if 'user_id' not in session:
+            return jsonify({'error': 'Не авторизован'}), 401
+        
+        data = request.get_json()
+        account_id = data.get('account_id')
+        stock_id = data.get('stock_id')
+        quantity = int(data.get('quantity', 0))
+        price = float(data.get('price', 0))
+        purchase_date = data.get('purchase_date')  # формат: YYYY-MM-DD
+        
+        if quantity <= 0:
+            return jsonify({'error': 'Количество должно быть положительным'}), 400
+        
+        if price <= 0:
+            return jsonify({'error': 'Цена должна быть положительной'}), 400
+        
+        account = Account.query.filter_by(
+            id=account_id, 
+            user_id=session['user_id']
+        ).first()
+        
+        stock = Stock.query.get(stock_id)
+        
+        if not account or not stock:
+            return jsonify({'error': 'Счет или акция не найдены'}), 404
+        
+        # Парсим дату
+        try:
+            from datetime import datetime as dt
+            purchase_datetime = dt.strptime(purchase_date, '%Y-%m-%d')
+            
+            # Проверяем, что дата не в будущем
+            if purchase_datetime > dt.now():
+                return jsonify({'error': 'Дата покупки не может быть в будущем'}), 400
+        except ValueError:
+            return jsonify({'error': 'Неверный формат даты'}), 400
+        
+        total_cost = quantity * price
+        
+        # Создаем транзакцию покупки с исторической датой
+        transaction = Transaction(
+            type='buy',
+            amount=total_cost,
+            price=price,
+            quantity=quantity,
+            account=account,
+            stock_id=stock.id,
+            timestamp=purchase_datetime
+        )
+        
+        db.session.add(transaction)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True, 
+            'message': 'Историческая покупка добавлена',
+            'total_cost': total_cost,
+            'transaction_id': transaction.id
+        })
+    
     @app.route('/api/sell_stock', methods=['POST'])
     def sell_stock():
         """API для продажи акций"""
@@ -814,6 +881,63 @@ def init_routes(app):
         db.session.commit()
         
         return jsonify({'success': True, 'new_balance': account.balance})
+    
+    @app.route('/api/accounts')
+    def get_accounts():
+        """API для получения списка счетов пользователя"""
+        if 'user_id' not in session:
+            return jsonify({'error': 'Не авторизован'}), 401
+        
+        accounts = Account.query.filter_by(user_id=session['user_id']).all()
+        
+        return jsonify({
+            'success': True,
+            'accounts': [{
+                'id': acc.id,
+                'name': acc.name,
+                'balance': acc.balance
+            } for acc in accounts]
+        })
+    
+    @app.route('/api/create_account', methods=['POST'])
+    def create_account():
+        """API для создания нового счета"""
+        if 'user_id' not in session:
+            return jsonify({'error': 'Не авторизован'}), 401
+        
+        data = request.get_json()
+        account_name = data.get('name', '').strip()
+        
+        if not account_name:
+            return jsonify({'error': 'Имя счета не может быть пустым'}), 400
+        
+        # Проверяем, не существует ли уже счет с таким именем
+        existing_account = Account.query.filter_by(
+            user_id=session['user_id'],
+            name=account_name
+        ).first()
+        
+        if existing_account:
+            return jsonify({'error': 'Счет с таким именем уже существует'}), 400
+        
+        # Создаем новый счет
+        new_account = Account(
+            name=account_name,
+            balance=0.0,
+            user_id=session['user_id']
+        )
+        
+        db.session.add(new_account)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'account': {
+                'id': new_account.id,
+                'name': new_account.name,
+                'balance': new_account.balance
+            }
+        })
     
     @app.route('/api/stock_price/<ticker>')
     def get_stock_price(ticker):

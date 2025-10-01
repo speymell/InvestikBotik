@@ -7,7 +7,23 @@
     </div>
 </div>
 
-<div class="row mt-4 g-4">
+<!-- Переключатель вида статистики -->
+<div class="row mt-4">
+    <div class="col-md-12 d-flex justify-content-between align-items-center mb-3">
+        <h5 class="mb-0">Статистика портфеля</h5>
+        <div class="btn-group btn-group-sm" role="group" aria-label="Вид статистики">
+            <button type="button" class="btn btn-outline-primary active" id="statsViewCards" onclick="toggleStatsView('cards')">
+                <i class="fas fa-th-large"></i> Карточки
+            </button>
+            <button type="button" class="btn btn-outline-primary" id="statsViewCompact" onclick="toggleStatsView('compact')">
+                <i class="fas fa-list"></i> Компактно
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Карточный вид статистики -->
+<div id="statsCardsView" class="row g-4">
     <div class="col-lg-3 col-md-6">
         <div class="stats-card balance-stats">
             <div class="stats-icon">
@@ -75,11 +91,57 @@
     </div>
 </div>
 
-<div class="row mt-4">
+<!-- Компактный вид статистики -->
+<div id="statsCompactView" class="row mt-4" style="display: none;">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-3 text-center">
+                        <div class="compact-stat">
+                            <i class="fas fa-wallet text-primary fs-3 mb-2"></i>
+                            <div class="compact-stat-label">Свободные средства</div>
+                            <div class="compact-stat-value">{{ "{:,.2f}".format(portfolio_stats.total_balance) }} ₽</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 text-center">
+                        <div class="compact-stat">
+                            <i class="fas fa-chart-line text-info fs-3 mb-2"></i>
+                            <div class="compact-stat-label">Инвестировано</div>
+                            <div class="compact-stat-value">{{ "{:,.2f}".format(portfolio_stats.total_invested) }} ₽</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 text-center">
+                        <div class="compact-stat">
+                            <i class="fas fa-gem text-success fs-3 mb-2"></i>
+                            <div class="compact-stat-label">Текущая стоимость</div>
+                            <div class="compact-stat-value">{{ "{:,.2f}".format(portfolio_stats.total_current_value) }} ₽</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 text-center">
+                        <div class="compact-stat">
+                            <i class="fas fa-{% if portfolio_stats.total_profit_loss >= 0 %}trending-up text-success{% else %}trending-down text-danger{% endif %} fs-3 mb-2"></i>
+                            <div class="compact-stat-label">Прибыль/Убыток</div>
+                            <div class="compact-stat-value {% if portfolio_stats.total_profit_loss >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                {% if portfolio_stats.total_profit_loss >= 0 %}+{% endif %}{{ "{:,.2f}".format(portfolio_stats.total_profit_loss) }} ₽
+                                <small class="d-block">({{ "%.1f"|format(portfolio_stats.total_profit_loss_percent) }}%)</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-5">
     <div class="col-md-6">
         <div class="card">
-            <div class="card-header">
-                <h5>Мои счета</h5>
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Мои счета</h5>
+                <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#createAccountModal">
+                    <i class="fas fa-plus"></i> Создать
+                </button>
             </div>
             <div class="card-body">
                 {% for account in accounts %}
@@ -192,27 +254,59 @@
 {% endif %}
 
 <!-- Топ акций -->
-<div class="row mt-4">
+<div class="row mt-5">
     <div class="col-md-12">
         <div class="card">
             <div class="card-header">
                 <h5>Популярные акции</h5>
             </div>
             <div class="card-body">
-                <div class="row">
+                <div class="row g-3">
                     {% for stock in top_stocks %}
-                    <div class="col-md-2">
-                        <div class="card border-light">
-                            <div class="card-body text-center p-2">
-                                <h6 class="card-title mb-1">{{ stock.ticker }}</h6>
-                                <p class="card-text small text-muted mb-1">{{ stock.name[:20] }}...</p>
-                                <p class="card-text"><strong>{{ "%.2f"|format(stock.price) }} ₽</strong></p>
-                                <a href="{{ url_for('stock_detail', ticker=stock.ticker) }}" class="btn btn-sm btn-outline-primary">Подробнее</a>
+                    <div class="col-lg-2 col-md-4 col-sm-6">
+                        <div class="card border-light h-100 popular-stock-card">
+                            <div class="card-body text-center p-3">
+                                {% if stock.logo_url %}
+                                    <img src="{{ stock.logo_url }}" alt="{{ stock.name }}" class="mb-2" style="width: 48px; height: 48px; object-fit: contain; border-radius: 8px;">
+                                {% else %}
+                                    <div class="bg-secondary rounded d-flex align-items-center justify-content-center mx-auto mb-2" style="width: 48px; height: 48px;">
+                                        <i class="fas fa-building text-white"></i>
+                                    </div>
+                                {% endif %}
+                                <h6 class="card-title mb-1 fw-bold">{{ stock.ticker }}</h6>
+                                <p class="card-text small text-muted mb-2" style="font-size: 0.75rem;">{{ stock.name[:18] }}{% if stock.name|length > 18 %}...{% endif %}</p>
+                                <p class="card-text mb-2"><strong class="text-primary">{{ "%.2f"|format(stock.price) }} ₽</strong></p>
+                                <a href="{{ url_for('stock_detail', ticker=stock.ticker) }}" class="btn btn-sm btn-outline-primary w-100">Подробнее</a>
                             </div>
                         </div>
                     </div>
                     {% endfor %}
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal для создания нового счета -->
+<div class="modal fade" id="createAccountModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Создать новый счет</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="createAccountForm">
+                    <div class="mb-3">
+                        <label for="accountName" class="form-label">Название счета</label>
+                        <input type="text" class="form-control" id="accountName" placeholder="Например: Инвестиционный счет" required>
+                        <small class="form-text text-muted">Введите уникальное название для нового счета</small>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-primary" onclick="submitCreateAccount()">Создать</button>
             </div>
         </div>
     </div>
@@ -283,5 +377,67 @@ function submitDeposit() {
         alert('Произошла ошибка: ' + error);
     });
 }
+
+// Переключение между видами статистики
+function toggleStatsView(view) {
+    const cardsView = document.getElementById('statsCardsView');
+    const compactView = document.getElementById('statsCompactView');
+    const cardsBtn = document.getElementById('statsViewCards');
+    const compactBtn = document.getElementById('statsViewCompact');
+    
+    if (view === 'cards') {
+        cardsView.style.display = 'flex';
+        compactView.style.display = 'none';
+        cardsBtn.classList.add('active');
+        compactBtn.classList.remove('active');
+        localStorage.setItem('statsView', 'cards');
+    } else {
+        cardsView.style.display = 'none';
+        compactView.style.display = 'block';
+        cardsBtn.classList.remove('active');
+        compactBtn.classList.add('active');
+        localStorage.setItem('statsView', 'compact');
+    }
+}
+
+// Создание нового счета
+function submitCreateAccount() {
+    const accountName = document.getElementById('accountName').value.trim();
+    
+    if (!accountName) {
+        alert('Введите название счета');
+        return;
+    }
+    
+    fetch('/api/create_account', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            name: accountName
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Счет успешно создан!');
+            location.reload();
+        } else {
+            alert('Ошибка: ' + data.error);
+        }
+    })
+    .catch(error => {
+        alert('Произошла ошибка: ' + error);
+    });
+}
+
+// Восстановление сохраненного вида при загрузке страницы
+document.addEventListener('DOMContentLoaded', function() {
+    const savedView = localStorage.getItem('statsView') || 'cards';
+    if (savedView === 'compact') {
+        toggleStatsView('compact');
+    }
+});
 </script>
 {% endblock %}

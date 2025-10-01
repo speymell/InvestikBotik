@@ -3,24 +3,39 @@
 {% block content %}
 <div class="row">
     <div class="col-md-12">
-        <h2>Российские акции</h2>
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <h2 class="mb-0">Инвестиции</h2>
+            
+            <!-- Переключатель Акции/Crypto -->
+            <div class="market-switcher">
+                <button class="market-btn active" id="stocksBtn" onclick="switchMarket('stocks')">
+                    <i class="fas fa-chart-line me-2"></i>Акции
+                </button>
+                <button class="market-btn" id="cryptoBtn" onclick="switchMarket('crypto')">
+                    <i class="fas fa-rocket me-2"></i>Crypto
+                </button>
+            </div>
+        </div>
     </div>
 </div>
 
-<div class="row mt-3">
-    <div class="col-md-6">
-        <form method="GET" class="d-flex">
-            <input class="form-control me-2" type="search" name="search" placeholder="Поиск по тикеру или названию" value="{{ search }}">
-            <button class="btn btn-outline-success" type="submit">Поиск</button>
-        </form>
+<!-- Секция Акций -->
+<div id="stocksSection">
+    <div class="row mt-3">
+        <div class="col-md-6">
+            <form method="GET" class="d-flex">
+                <input class="form-control me-2" type="search" name="search" placeholder="Поиск по тикеру или названию" value="{{ search }}">
+                <button class="btn btn-outline-success" type="submit">Поиск</button>
+            </form>
+        </div>
     </div>
-</div>
 
-<div class="row mt-4">
+    <div class="row mt-4">
     <div class="col-md-12">
         <div class="card">
             <div class="card-body">
-                <div class="table-responsive">
+                <!-- Десктоп версия -->
+                <div class="table-responsive d-none d-md-block">
                     <table class="table table-hover">
                         <thead>
                             <tr>
@@ -33,7 +48,7 @@
                         </thead>
                         <tbody>
                             {% for stock in stocks.items %}
-                            <tr class="stock-row" onclick="window.location.href='{{ url_for('stock_detail', ticker=stock.ticker) }}'" style="cursor: pointer;">
+                            <tr class="stock-row" onclick="window.location.href='{{ url_for('stock_detail', ticker=stock.ticker) }}';" style="cursor: pointer;">
                                 <td>
                                     {% if stock.logo_url %}
                                         <img src="{{ stock.logo_url }}" alt="{{ stock.name }}" style="width: 32px; height: 32px; object-fit: contain;" class="rounded">
@@ -63,6 +78,45 @@
                             {% endfor %}
                         </tbody>
                     </table>
+                </div>
+                
+                <!-- Мобильная версия -->
+                <div class="d-block d-md-none">
+                    {% for stock in stocks.items %}
+                    <div class="stock-mobile-item" onclick="window.location.href='{{ url_for('stock_detail', ticker=stock.ticker) }}';">
+                        <div class="d-flex align-items-center">
+                            <div class="stock-mobile-logo">
+                                {% if stock.logo_url %}
+                                    <img src="{{ stock.logo_url }}" alt="{{ stock.name }}" style="width: 40px; height: 40px; object-fit: contain; border-radius: 8px;">
+                                {% else %}
+                                    <div class="bg-secondary rounded d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                        <i class="fas fa-building text-white"></i>
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="stock-mobile-info flex-grow-1">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <div class="stock-mobile-ticker">{{ stock.ticker }}</div>
+                                        <div class="stock-mobile-name">{{ stock.name[:30] }}{% if stock.name|length > 30 %}...{% endif %}</div>
+                                        {% if stock.sector %}
+                                            <span class="badge bg-secondary" style="font-size: 0.65rem;">{{ stock.sector }}</span>
+                                        {% endif %}
+                                    </div>
+                                    <div class="text-end">
+                                        <div class="stock-mobile-price">
+                                            {% if stock.price > 0 %}
+                                                {{ "%.2f"|format(stock.price) }} ₽
+                                            {% else %}
+                                                <span class="text-muted">Н/Д</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
                 </div>
                 
                 {% if not stocks.items %}
@@ -115,4 +169,79 @@
     </div>
 </div>
 {% endif %}
+</div>
+<!-- Конец секции акций -->
+
+<!-- Секция Crypto -->
+<div id="cryptoSection" style="display: none;">
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="crypto-coming-soon">
+                <div class="space-background">
+                    <div class="stars"></div>
+                    <div class="stars2"></div>
+                    <div class="stars3"></div>
+                </div>
+                
+                <div class="crypto-content">
+                    <div class="rocket-icon">
+                        <i class="fas fa-rocket"></i>
+                    </div>
+                    <h1 class="crypto-title">Crypto Trading</h1>
+                    <h3 class="crypto-subtitle">Скоро...</h3>
+                    <p class="crypto-description">
+                        Мы работаем над добавлением криптовалют в наш сервис.<br>
+                        Следите за обновлениями!
+                    </p>
+                    <div class="crypto-features">
+                        <div class="crypto-feature">
+                            <i class="fas fa-bitcoin"></i>
+                            <span>Bitcoin</span>
+                        </div>
+                        <div class="crypto-feature">
+                            <i class="fas fa-ethereum"></i>
+                            <span>Ethereum</span>
+                        </div>
+                        <div class="crypto-feature">
+                            <i class="fas fa-coins"></i>
+                            <span>Altcoins</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Конец секции Crypto -->
+
+<script>
+function switchMarket(market) {
+    const stocksSection = document.getElementById('stocksSection');
+    const cryptoSection = document.getElementById('cryptoSection');
+    const stocksBtn = document.getElementById('stocksBtn');
+    const cryptoBtn = document.getElementById('cryptoBtn');
+    
+    if (market === 'stocks') {
+        stocksSection.style.display = 'block';
+        cryptoSection.style.display = 'none';
+        stocksBtn.classList.add('active');
+        cryptoBtn.classList.remove('active');
+        localStorage.setItem('selectedMarket', 'stocks');
+    } else {
+        stocksSection.style.display = 'none';
+        cryptoSection.style.display = 'block';
+        stocksBtn.classList.remove('active');
+        cryptoBtn.classList.add('active');
+        localStorage.setItem('selectedMarket', 'crypto');
+    }
+}
+
+// Восстановление выбора при загрузке страницы
+document.addEventListener('DOMContentLoaded', function() {
+    const savedMarket = localStorage.getItem('selectedMarket') || 'stocks';
+    if (savedMarket === 'crypto') {
+        switchMarket('crypto');
+    }
+});
+</script>
 {% endblock %}
