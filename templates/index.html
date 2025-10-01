@@ -10,9 +10,15 @@
     <div class="col-lg-8 mx-auto">
       <p class="lead mb-4 text-muted">Ваш персональный помощник для отслеживания инвестиций в российские акции. Управляйте счетами, анализируйте портфель и следите за рынком в реальном времени.</p>
       <div class="d-grid gap-3 d-sm-flex justify-content-sm-center">
+        {% if session.user_id %}
+        <a href="{{ url_for('dashboard') }}" class="btn btn-primary btn-lg px-5 btn-action shadow">
+          <i class="fas fa-briefcase me-2"></i>Мой портфель
+        </a>
+        {% else %}
         <a href="{{ url_for('demo_login') }}" class="btn btn-primary btn-lg px-5 btn-action shadow">
           <i class="fas fa-play-circle me-2"></i>Попробовать демо
         </a>
+        {% endif %}
         <a href="{{ url_for('stocks') }}" class="btn btn-outline-primary btn-lg px-5 btn-action">
           <i class="fas fa-chart-bar me-2"></i>Акции
         </a>

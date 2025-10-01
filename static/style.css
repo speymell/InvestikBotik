@@ -655,3 +655,39 @@ footer {
 [data-theme="dark"] .stock-row:hover {
     background-color: rgba(144, 205, 244, 0.1) !important;
 }
+
+/* Улучшенное мобильное меню */
+@media (max-width: 991px) {
+    .navbar-collapse {
+        background: white;
+        padding: 1rem;
+        margin-top: 0.5rem;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+    
+    [data-theme="dark"] .navbar-collapse {
+        background: #2d3748;
+    }
+    
+    .navbar-nav {
+        gap: 0.5rem;
+    }
+    
+    .nav-item {
+        border-radius: 6px;
+    }
+    
+    .nav-link {
+        padding: 0.75rem 1rem !important;
+        margin: 0 !important;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .nav-link i {
+        width: 20px;
+        text-align: center;
+    }
+}

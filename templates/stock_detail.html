@@ -67,9 +67,9 @@
                 
                 <!-- График цены -->
                 <div class="mt-4">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                         <h6 class="mb-0">График изменения цены</h6>
-                        <div class="d-flex gap-2">
+                        <div class="d-flex gap-1 flex-wrap">
                             <div class="btn-group" role="group" aria-label="Таймфрейм">
                                 <button type="button" class="btn btn-outline-primary btn-sm active" onclick="changeTimeframe('1D')">1Д</button>
                                 <button type="button" class="btn btn-outline-primary btn-sm" onclick="changeTimeframe('1W')">1Н</button>
@@ -247,15 +247,26 @@ function initChart() {
     const ctx = document.getElementById('priceChart');
     if (!ctx) return;
     
-    // Генерируем начальные данные для графика (последние 30 точек)
+    // Генерируем начальные данные для графика с реалистичными изменениями
     const now = new Date();
-    for (let i = 29; i >= 0; i--) {
-        const time = new Date(now.getTime() - i * 60000); // каждую минуту
+    let currentPrice = stockPrice;
+    
+    // Генерируем данные за последние 24 часа (48 точек по 30 минут)
+    for (let i = 47; i >= 0; i--) {
+        const time = new Date(now.getTime() - i * 30 * 60 * 1000);
+        
+        // Случайное изменение цены ±2%
+        const change = (Math.random() - 0.5) * 0.04 * stockPrice;
+        currentPrice = Math.max(currentPrice + change, stockPrice * 0.8);
+        
         priceHistory.push({
             time: time.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
-            price: stockPrice
+            price: currentPrice
         });
     }
+    
+    // Последняя точка - текущая цена
+    priceHistory[priceHistory.length - 1].price = stockPrice;
     
     priceChart = new Chart(ctx, {
         type: 'line',
