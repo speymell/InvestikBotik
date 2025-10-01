@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тест Telegram Web App</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .info {
+            background: white;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border-left: 4px solid #007bff;
+        }
+        .success { border-left-color: #28a745; }
+        .error { border-left-color: #dc3545; }
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Минимальный тест Telegram Web App</h1>
+    <div id="results"></div>
+
+    <script>
+        const results = document.getElementById('results');
+        
+        function addResult(title, content, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `info ${type}`;
+            div.innerHTML = `<h3>${title}</h3><pre>${content}</pre>`;
+            results.appendChild(div);
+        }
+        
+        // Тест 1: Проверка наличия Telegram
+        if (window.Telegram) {
+            addResult('✅ Тест 1: window.Telegram', 'Объект Telegram доступен', 'success');
+        } else {
+            addResult('❌ Тест 1: window.Telegram', 'Объект Telegram НЕ доступен', 'error');
+        }
+        
+        // Тест 2: Проверка WebApp
+        if (window.Telegram && window.Telegram.WebApp) {
+            addResult('✅ Тест 2: Telegram.WebApp', 'WebApp доступен', 'success');
+            
+            const tg = window.Telegram.WebApp;
+            
+            // Инициализация
+            tg.ready();
+            tg.expand();
+            addResult('✅ Тест 3: Инициализация', 'ready() и expand() вызваны', 'success');
+            
+            // Тест 3: Основная информация
+            const info = {
+                version: tg.version,
+                platform: tg.platform,
+                colorScheme: tg.colorScheme,
+                isExpanded: tg.isExpanded,
+                viewportHeight: tg.viewportHeight,
+                initDataAvailable: !!tg.initData,
+                initDataUnsafeAvailable: !!tg.initDataUnsafe
+            };
+            addResult('📊 Тест 4: Основная информация', JSON.stringify(info, null, 2), 'info');
+            
+            // Тест 4: initData
+            if (tg.initData) {
+                addResult('✅ Тест 5: initData', tg.initData, 'success');
+            } else {
+                addResult('❌ Тест 5: initData', 'initData пустой!', 'error');
+            }
+            
+            // Тест 5: initDataUnsafe
+            if (tg.initDataUnsafe && Object.keys(tg.initDataUnsafe).length > 0) {
+                addResult('✅ Тест 6: initDataUnsafe', JSON.stringify(tg.initDataUnsafe, null, 2), 'success');
+                
+                // Тест 6: Данные пользователя
+                if (tg.initDataUnsafe.user) {
+                    addResult('✅ Тест 7: Данные пользователя', JSON.stringify(tg.initDataUnsafe.user, null, 2), 'success');
+                } else {
+                    addResult('❌ Тест 7: Данные пользователя', 'Данные пользователя отсутствуют', 'error');
+                }
+            } else {
+                addResult('❌ Тест 6: initDataUnsafe', 'initDataUnsafe пустой!', 'error');
+            }
+            
+            // Тест 7: Парсинг initData вручную
+            if (tg.initData) {
+                try {
+                    const initData = new URLSearchParams(tg.initData);
+                    const userParam = initData.get('user');
+                    if (userParam) {
+                        const user = JSON.parse(decodeURIComponent(userParam));
+                        addResult('✅ Тест 8: Парсинг initData', JSON.stringify(user, null, 2), 'success');
+                    } else {
+                        addResult('⚠️ Тест 8: Парсинг initData', 'Параметр user не найден в initData', 'error');
+                    }
+                } catch (e) {
+                    addResult('❌ Тест 8: Парсинг initData', `Ошибка: ${e.message}`, 'error');
+                }
+            }
+            
+        } else {
+            addResult('❌ Тест 2: Telegram.WebApp', 'WebApp НЕ доступен', 'error');
+        }
+        
+        // Финальный вывод
+        addResult('📝 Рекомендации', `
+1. Если initData пустой - приложение открыто НЕ через Telegram Web App кнопку
+2. Убедитесь что Menu Button настроен у @BotFather
+3. Откройте приложение через бота, а не через обычную ссылку
+4. Используйте команду /app в боте для получения правильной кнопки
+        `, 'info');
+    </script>
+</body>
+</html>

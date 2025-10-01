@@ -29,7 +29,6 @@
                     </p>
                 </div>
 
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script>
     // Проверяем, запущено ли приложение в Telegram Web App
     function checkTelegramWebApp() {
@@ -49,12 +48,15 @@
         // Проверяем наличие Telegram Web App API
         if (window.Telegram && window.Telegram.WebApp) {
             const tg = window.Telegram.WebApp;
+            
+            // Важно! Сообщаем Telegram что приложение готово
+            tg.ready();
+            tg.expand();
+            
             console.log('Telegram Web App доступен:', tg);
+            console.log('Platform:', tg.platform);
             console.log('initData:', tg.initData);
             console.log('initDataUnsafe:', tg.initDataUnsafe);
-            
-            // Расширяем приложение на весь экран
-            tg.expand();
             
             // Пробуем разные способы получения данных пользователя
             let user = null;

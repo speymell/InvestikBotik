@@ -64,22 +64,20 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     )
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Обработчик команды /help"""
+    """Справка по командам бота"""
     help_text = """
-🆘 Помощь по InvestBot
+📖 Доступные команды:
 
-📱 Как пользоваться:
-1. Нажмите "Открыть InvestBot" для входа в приложение
-2. Создайте счета и пополните их
-3. Покупайте и продавайте акции
-4. Отслеживайте прибыль и убытки
-
-💡 Команды бота:
-/start - Главное меню
-/help - Эта справка
+/start - Начать работу с ботом
+/app или /webapp - Открыть приложение (с кнопкой Web App)
 /portfolio - Быстрый просмотр портфеля
+/help - Справка по командам
 
-🔧 Поддержка: @your_support_username
+⚠️ ВАЖНО для авторизации:
+Используйте команду /app или кнопку "📊 Открыть InvestBot".
+НЕ открывайте через обычную ссылку!
+
+💡 Если не работает - попробуйте демо-режим
     """
     
     await update.message.reply_text(help_text)
@@ -116,6 +114,31 @@ async def portfolio_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         reply_markup=reply_markup
     )
 
+async def webapp_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Отправляет кнопку для открытия Web App"""
+    user = update.effective_user
+    
+    keyboard = [
+        [InlineKeyboardButton(
+            "🚀 Открыть приложение", 
+            web_app=WebAppInfo(url=WEB_APP_URL)
+        )],
+        [InlineKeyboardButton(
+            "🧪 Тест (минимальный)", 
+            web_app=WebAppInfo(url=f"{WEB_APP_URL}/test_telegram")
+        )]
+    ]
+    
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await update.message.reply_text(
+        f"👋 Привет, {user.first_name}!\n\n"
+        f"🚀 Основное приложение - полный функционал\n"
+        f"🧪 Тест - минимальная проверка Telegram Web App\n\n"
+        f"⚠️ Важно: используйте кнопки Web App выше!",
+        reply_markup=reply_markup
+    )
+
 async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Обработчик нажатий на кнопки"""
     query = update.callback_query
@@ -140,6 +163,9 @@ def main() -> None:
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("portfolio", portfolio_command))
+    application.add_handler(CommandHandler("app", webapp_command))
+    application.add_handler(CommandHandler("webapp", webapp_command))
+    application.add_handler(CallbackQueryHandler(button_callback))
     
     # Запускаем бота
     print("🤖 InvestBot запущен!")

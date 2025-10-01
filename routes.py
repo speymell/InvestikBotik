@@ -487,6 +487,11 @@ def init_routes(app):
         """Отладочная страница для Telegram Web App"""
         return render_template('debug_telegram.html')
     
+    @app.route('/test_telegram')
+    def test_telegram():
+        """Минимальный тест Telegram Web App (без layout)"""
+        return render_template('test_telegram.html')
+    
     @app.route('/demo_login')
     def demo_login():
         """Демо-вход для тестирования без Telegram"""
