@@ -10,6 +10,11 @@ def init_routes(app):
         """Health check endpoint для Render"""
         return jsonify({'status': 'ok', 'message': 'InvestBot is running'})
     
+    @app.route('/test')
+    def test():
+        """Test endpoint"""
+        return jsonify({'status': 'ok', 'message': 'Routes are working', 'routes': 'initialized'})
+    
     @app.route('/migrate')
     def migrate():
         """Принудительная миграция БД"""
@@ -287,39 +292,7 @@ def init_routes(app):
             except Exception:
                 pass
             return jsonify({'status': 'error', 'message': f'Error: {str(e)}'})
-
-def get_sector_by_ticker(ticker):
-    """Определяет сектор по тикеру акции"""
-    sectors = {
-        # Банки
-        'SBER': 'Банки', 'VTBR': 'Банки', 'TCSG': 'Банки', 'CBOM': 'Банки',
-        # Нефть и газ
-        'GAZP': 'Нефть и газ', 'LKOH': 'Нефть и газ', 'ROSN': 'Нефть и газ', 
-        'NVTK': 'Нефть и газ', 'TATN': 'Нефть и газ', 'SNGS': 'Нефть и газ',
-        # Металлургия
-        'GMKN': 'Металлургия', 'RUAL': 'Металлургия', 'MAGN': 'Металлургия',
-        'NLMK': 'Металлургия', 'CHMF': 'Металлургия', 'ALRS': 'Металлургия',
-        'PLZL': 'Металлургия',
-        # IT
-        'YNDX': 'IT', 'MAIL': 'IT', 'OZON': 'IT', 'VKCO': 'IT',
-        # Телеком
-        'MTSS': 'Телеком', 'RTKM': 'Телеком', 'MGTS': 'Телеком',
-        # Энергетика
-        'FEES': 'Энергетика', 'HYDR': 'Энергетика', 'IRAO': 'Энергетика',
-        'LSRG': 'Энергетика', 'MSRS': 'Энергетика',
-        # Транспорт
-        'AFLT': 'Транспорт', 'FESH': 'Транспорт',
-        # Финансы
-        'MOEX': 'Финансы', 'SPBE': 'Финансы',
-        # Химия
-        'PHOR': 'Химия', 'AKRN': 'Химия',
-        # Недвижимость
-        'PIKK': 'Недвижимость', 'LSRG': 'Недвижимость', 'ETALON': 'Недвижимость',
-        # Ритейл
-        'FIVE': 'Ритейл', 'MGNT': 'Ритейл', 'DIXY': 'Ритейл'
-    }
-    return sectors.get(ticker, 'Прочие')
-
+    
     @app.route('/update_prices')
     def update_prices():
         """Обновить цены всех акций с MOEX"""
@@ -404,7 +377,13 @@ def get_sector_by_ticker(ticker):
         try:
             return render_template('index.html', year=current_year)
         except Exception as e:
-            return jsonify({'error': str(e), 'message': 'Template error'}), 500
+            # Возвращаем детальную информацию об ошибке
+            import traceback
+            return jsonify({
+                'error': str(e), 
+                'message': 'Template error',
+                'traceback': traceback.format_exc()
+            }), 500
     
     @app.route('/login')
     def login():
@@ -826,3 +805,36 @@ def get_sector_by_ticker(ticker):
                     'error': str(e)
                 })
             return jsonify({'success': False, 'error': str(e)}), 500
+
+# Вспомогательные функции (вне init_routes)
+def get_sector_by_ticker(ticker):
+    """Определяет сектор по тикеру акции"""
+    sectors = {
+        # Банки
+        'SBER': 'Банки', 'VTBR': 'Банки', 'TCSG': 'Банки', 'CBOM': 'Банки',
+        # Нефть и газ
+        'GAZP': 'Нефть и газ', 'LKOH': 'Нефть и газ', 'ROSN': 'Нефть и газ', 
+        'NVTK': 'Нефть и газ', 'TATN': 'Нефть и газ', 'SNGS': 'Нефть и газ',
+        # Металлургия
+        'GMKN': 'Металлургия', 'RUAL': 'Металлургия', 'MAGN': 'Металлургия',
+        'NLMK': 'Металлургия', 'CHMF': 'Металлургия', 'ALRS': 'Металлургия',
+        'PLZL': 'Металлургия',
+        # IT
+        'YNDX': 'IT', 'MAIL': 'IT', 'OZON': 'IT', 'VKCO': 'IT',
+        # Телеком
+        'MTSS': 'Телеком', 'RTKM': 'Телеком', 'MGTS': 'Телеком',
+        # Энергетика
+        'FEES': 'Энергетика', 'HYDR': 'Энергетика', 'IRAO': 'Энергетика',
+        'LSRG': 'Энергетика', 'MSRS': 'Энергетика',
+        # Транспорт
+        'AFLT': 'Транспорт', 'FESH': 'Транспорт',
+        # Финансы
+        'MOEX': 'Финансы', 'SPBE': 'Финансы',
+        # Химия
+        'PHOR': 'Химия', 'AKRN': 'Химия',
+        # Недвижимость
+        'PIKK': 'Недвижимость', 'LSRG': 'Недвижимость', 'ETALON': 'Недвижимость',
+        # Ритейл
+        'FIVE': 'Ритейл', 'MGNT': 'Ритейл', 'DIXY': 'Ритейл'
+    }
+    return sectors.get(ticker, 'Прочие')
