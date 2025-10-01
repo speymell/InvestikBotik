@@ -7,45 +7,69 @@
     </div>
 </div>
 
-<div class="row mt-4">
-    <div class="col-md-3 mb-3">
-        <div class="card card-stats balance-card h-100">
-            <div class="card-body text-center">
-                <i class="fas fa-wallet fa-2x mb-2"></i>
-                <h5 class="card-title">Свободные средства</h5>
-                <h3 class="price-display">{{ "%.2f"|format(portfolio_stats.total_balance) }} ₽</h3>
+<div class="row mt-4 g-4">
+    <div class="col-lg-3 col-md-6">
+        <div class="stats-card balance-stats">
+            <div class="stats-icon">
+                <i class="fas fa-wallet"></i>
+            </div>
+            <div class="stats-content">
+                <div class="stats-label">Свободные средства</div>
+                <div class="stats-value">{{ "{:,.2f}".format(portfolio_stats.total_balance) }} ₽</div>
+                <div class="stats-trend">
+                    <i class="fas fa-info-circle"></i>
+                    <span>Доступно для инвестиций</span>
+                </div>
             </div>
         </div>
     </div>
-    <div class="col-md-3 mb-3">
-        <div class="card card-stats invested-card h-100">
-            <div class="card-body text-center">
-                <i class="fas fa-chart-line fa-2x mb-2"></i>
-                <h5 class="card-title">Инвестировано</h5>
-                <h3 class="price-display">{{ "%.2f"|format(portfolio_stats.total_invested) }} ₽</h3>
+    
+    <div class="col-lg-3 col-md-6">
+        <div class="stats-card invested-stats">
+            <div class="stats-icon">
+                <i class="fas fa-chart-line"></i>
+            </div>
+            <div class="stats-content">
+                <div class="stats-label">Инвестировано</div>
+                <div class="stats-value">{{ "{:,.2f}".format(portfolio_stats.total_invested) }} ₽</div>
+                <div class="stats-trend">
+                    <i class="fas fa-coins"></i>
+                    <span>Вложено в акции</span>
+                </div>
             </div>
         </div>
     </div>
-    <div class="col-md-3 mb-3">
-        <div class="card card-stats value-card h-100">
-            <div class="card-body text-center">
-                <i class="fas fa-coins fa-2x mb-2"></i>
-                <h5 class="card-title">Текущая стоимость</h5>
-                <h3 class="price-display">{{ "%.2f"|format(portfolio_stats.total_current_value) }} ₽</h3>
+    
+    <div class="col-lg-3 col-md-6">
+        <div class="stats-card value-stats">
+            <div class="stats-icon">
+                <i class="fas fa-gem"></i>
+            </div>
+            <div class="stats-content">
+                <div class="stats-label">Текущая стоимость</div>
+                <div class="stats-value">{{ "{:,.2f}".format(portfolio_stats.total_current_value) }} ₽</div>
+                <div class="stats-trend">
+                    <i class="fas fa-chart-area"></i>
+                    <span>Рыночная стоимость</span>
+                </div>
             </div>
         </div>
     </div>
-    <div class="col-md-3 mb-3">
-        <div class="card card-stats profit-card h-100 {% if portfolio_stats.total_profit_loss < 0 %}negative{% endif %}">
-            <div class="card-body text-center">
-                <i class="fas fa-{% if portfolio_stats.total_profit_loss >= 0 %}arrow-up{% else %}arrow-down{% endif %} fa-2x mb-2"></i>
-                <h5 class="card-title">Прибыль/Убыток</h5>
-                <h3 class="price-display">
-                    {{ "%.2f"|format(portfolio_stats.total_profit_loss) }} ₽
-                </h3>
-                <small>
-                    ({{ "%.1f"|format(portfolio_stats.total_profit_loss_percent) }}%)
-                </small>
+    
+    <div class="col-lg-3 col-md-6">
+        <div class="stats-card profit-stats {% if portfolio_stats.total_profit_loss < 0 %}negative{% endif %}">
+            <div class="stats-icon">
+                <i class="fas fa-{% if portfolio_stats.total_profit_loss >= 0 %}trending-up{% else %}trending-down{% endif %}"></i>
+            </div>
+            <div class="stats-content">
+                <div class="stats-label">Прибыль/Убыток</div>
+                <div class="stats-value">
+                    {% if portfolio_stats.total_profit_loss >= 0 %}+{% endif %}{{ "{:,.2f}".format(portfolio_stats.total_profit_loss) }} ₽
+                </div>
+                <div class="stats-trend {% if portfolio_stats.total_profit_loss >= 0 %}positive{% else %}negative{% endif %}">
+                    <i class="fas fa-{% if portfolio_stats.total_profit_loss >= 0 %}arrow-up{% else %}arrow-down{% endif %}"></i>
+                    <span>{{ "%.1f"|format(portfolio_stats.total_profit_loss_percent) }}%</span>
+                </div>
             </div>
         </div>
     </div>
@@ -73,9 +97,12 @@
                 {% if not loop.last %}<hr>{% endif %}
                 {% endfor %}
                 
-                <button class="btn btn-success btn-sm mt-2" data-bs-toggle="modal" data-bs-target="#depositModal">
-                    Пополнить счет
-                </button>
+                <div class="d-grid mt-3">
+                    <button class="btn btn-primary btn-lg shadow-sm" data-bs-toggle="modal" data-bs-target="#depositModal">
+                        <i class="fas fa-plus-circle me-2"></i>
+                        <span class="fw-bold">Пополнить счет</span>
+                    </button>
+                </div>
             </div>
         </div>
     </div>

@@ -12,29 +12,55 @@
                     <i class="fas fa-chart-line fa-4x text-primary mb-3"></i>
                 </div>
                 
-                <!-- Демо-вход -->
-                <div class="d-grid gap-3">
+                <!-- Проверяем, откуда пришел пользователь -->
+                <div id="loginOptions" class="d-grid gap-3">
                     <a href="{{ url_for('demo_login') }}" class="btn btn-primary btn-lg">
                         <i class="fas fa-play-circle me-2"></i>
                         Демо-режим
                     </a>
-                    
-                    <div class="divider my-3">
-                        <span class="text-muted">или</span>
-                    </div>
-                    
-                    <button class="btn btn-outline-primary btn-lg" disabled>
-                        <i class="fab fa-telegram me-2"></i>
-                        Войти через Telegram
-                    </button>
                 </div>
                 
                 <div class="mt-4">
-                    <p class="small text-muted">
-                        Для полноценной работы с ботом подключите Telegram.<br>
+                    <p class="small text-muted" id="loginInfo">
                         В демо-режиме вы можете протестировать все функции приложения.
                     </p>
                 </div>
+
+<script>
+// Проверяем, запущено ли приложение в Telegram Web App
+function checkTelegramWebApp() {
+    // Проверяем наличие Telegram Web App API
+    if (window.Telegram && window.Telegram.WebApp) {
+        const tg = window.Telegram.WebApp;
+        
+        // Получаем данные пользователя
+        const user = tg.initDataUnsafe?.user;
+        
+        if (user) {
+            // Автоматически перенаправляем с данными Telegram
+            const params = new URLSearchParams({
+                telegram_id: user.id,
+                username: user.username || user.first_name || 'User'
+            });
+            
+            window.location.href = `/login?${params.toString()}`;
+            return;
+        }
+    }
+    
+    // Проверяем User Agent на наличие Telegram
+    const userAgent = navigator.userAgent.toLowerCase();
+    const isTelegram = userAgent.includes('telegram') || userAgent.includes('tgwebapp');
+    
+    if (isTelegram) {
+        document.getElementById('loginInfo').innerHTML = 
+            '<i class="fas fa-info-circle text-info me-2"></i>Вы используете Telegram браузер. Для полного доступа откройте приложение через бота.';
+    }
+}
+
+// Запускаем проверку при загрузке страницы
+document.addEventListener('DOMContentLoaded', checkTelegramWebApp);
+</script>
             </div>
         </div>
     </div>

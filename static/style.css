@@ -346,3 +346,225 @@ footer {
     background-color: #f8d7da;
     color: #721c24;
 }
+
+/* Новые стильные карточки статистики */
+.stats-card {
+    background: white;
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    border: none;
+    transition: all 0.3s ease;
+    height: 100%;
+    position: relative;
+    overflow: hidden;
+}
+
+.stats-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+}
+
+.stats-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #667eea, #764ba2);
+}
+
+.stats-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    margin-bottom: 16px;
+    color: white;
+}
+
+.balance-stats .stats-icon {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.invested-stats .stats-icon {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+.value-stats .stats-icon {
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+}
+
+.profit-stats .stats-icon {
+    background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+}
+
+.profit-stats.negative .stats-icon {
+    background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+}
+
+.stats-content {
+    flex: 1;
+}
+
+.stats-label {
+    font-size: 14px;
+    font-weight: 500;
+    color: #6c757d;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.stats-value {
+    font-size: 28px;
+    font-weight: 700;
+    color: #2d3748;
+    margin-bottom: 8px;
+    line-height: 1.2;
+}
+
+.stats-trend {
+    display: flex;
+    align-items: center;
+    font-size: 12px;
+    font-weight: 500;
+    color: #718096;
+}
+
+.stats-trend i {
+    margin-right: 4px;
+    font-size: 10px;
+}
+
+.stats-trend.positive {
+    color: #38a169;
+}
+
+.stats-trend.negative {
+    color: #e53e3e;
+}
+
+/* Темная тема */
+[data-theme="dark"] {
+    --bs-body-bg: #1a202c;
+    --bs-body-color: #e2e8f0;
+}
+
+[data-theme="dark"] body {
+    background-color: #1a202c !important;
+    color: #e2e8f0 !important;
+}
+
+[data-theme="dark"] .navbar {
+    background-color: #2d3748 !important;
+    border-bottom: 1px solid #4a5568;
+}
+
+[data-theme="dark"] .navbar-brand,
+[data-theme="dark"] .nav-link {
+    color: #e2e8f0 !important;
+}
+
+[data-theme="dark"] .card {
+    background-color: #2d3748 !important;
+    border: 1px solid #4a5568 !important;
+    color: #e2e8f0 !important;
+}
+
+[data-theme="dark"] .stats-card {
+    background-color: #2d3748 !important;
+    border: 1px solid #4a5568 !important;
+    color: #e2e8f0 !important;
+}
+
+[data-theme="dark"] .stats-value {
+    color: #e2e8f0 !important;
+}
+
+[data-theme="dark"] .table {
+    --bs-table-bg: #2d3748;
+    --bs-table-color: #e2e8f0;
+    --bs-table-border-color: #4a5568;
+}
+
+[data-theme="dark"] .table-hover > tbody > tr:hover > * {
+    --bs-table-accent-bg: #4a5568;
+}
+
+[data-theme="dark"] .btn-outline-primary {
+    color: #90cdf4;
+    border-color: #90cdf4;
+}
+
+[data-theme="dark"] .btn-outline-primary:hover {
+    background-color: #90cdf4;
+    color: #1a202c;
+}
+
+[data-theme="dark"] .text-muted {
+    color: #a0aec0 !important;
+}
+
+[data-theme="dark"] .breadcrumb {
+    background-color: #2d3748;
+}
+
+[data-theme="dark"] .breadcrumb-item + .breadcrumb-item::before {
+    color: #a0aec0;
+}
+
+[data-theme="dark"] .modal-content {
+    background-color: #2d3748;
+    color: #e2e8f0;
+    border: 1px solid #4a5568;
+}
+
+[data-theme="dark"] .modal-header {
+    border-bottom: 1px solid #4a5568;
+}
+
+[data-theme="dark"] .form-control,
+[data-theme="dark"] .form-select {
+    background-color: #4a5568;
+    border-color: #718096;
+    color: #e2e8f0;
+}
+
+[data-theme="dark"] .form-control:focus,
+[data-theme="dark"] .form-select:focus {
+    background-color: #4a5568;
+    border-color: #90cdf4;
+    color: #e2e8f0;
+    box-shadow: 0 0 0 0.2rem rgba(144, 205, 244, 0.25);
+}
+
+/* Переключатель темы */
+.theme-toggle {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1050;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    color: white;
+    font-size: 18px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    transition: all 0.3s ease;
+}
+
+.theme-toggle:hover {
+    transform: scale(1.1);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .theme-toggle {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}

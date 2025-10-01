@@ -112,18 +112,34 @@
     <div class="col-md-4">
         <div class="card">
             <div class="card-header">
-                <h5>Действия со счетом</h5>
+                <h5><i class="fas fa-cogs me-2"></i>Действия со счетом</h5>
             </div>
             <div class="card-body">
-                <button class="btn btn-success btn-block mb-2" data-bs-toggle="modal" data-bs-target="#depositModal">
-                    Пополнить счет
-                </button>
-                <button class="btn btn-warning btn-block mb-2" data-bs-toggle="modal" data-bs-target="#withdrawModal">
-                    Вывести средства
-                </button>
-                <a href="{{ url_for('stocks') }}" class="btn btn-primary btn-block">
-                    Купить акции
-                </a>
+                <div class="d-grid gap-3">
+                    <button class="btn btn-success btn-lg shadow-sm" data-bs-toggle="modal" data-bs-target="#depositModal">
+                        <i class="fas fa-plus-circle me-2"></i>
+                        <div class="d-flex flex-column align-items-start">
+                            <span class="fw-bold">Пополнить счет</span>
+                            <small class="opacity-75">Добавить средства</small>
+                        </div>
+                    </button>
+                    
+                    <button class="btn btn-outline-warning btn-lg shadow-sm" data-bs-toggle="modal" data-bs-target="#withdrawModal">
+                        <i class="fas fa-minus-circle me-2"></i>
+                        <div class="d-flex flex-column align-items-start">
+                            <span class="fw-bold">Вывести средства</span>
+                            <small class="opacity-75">Снять деньги</small>
+                        </div>
+                    </button>
+                    
+                    <a href="{{ url_for('stocks') }}" class="btn btn-primary btn-lg shadow-sm text-decoration-none">
+                        <i class="fas fa-chart-line me-2"></i>
+                        <div class="d-flex flex-column align-items-start">
+                            <span class="fw-bold">Купить акции</span>
+                            <small class="opacity-75">Инвестировать</small>
+                        </div>
+                    </a>
+                </div>
             </div>
         </div>
     </div>

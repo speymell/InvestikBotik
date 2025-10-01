@@ -388,9 +388,15 @@ def init_routes(app):
     @app.route('/login')
     def login():
         """Страница входа через Telegram"""
+        # Проверяем, пришел ли пользователь из Telegram Web App
         telegram_id = request.args.get('telegram_id')
         username = request.args.get('username')
         
+        # Проверяем заголовки Telegram Web App
+        user_agent = request.headers.get('User-Agent', '')
+        is_telegram = any(x in user_agent.lower() for x in ['telegram', 'tgwebapp'])
+        
+        # Если есть данные Telegram или это Telegram браузер, автоматически логиним
         if telegram_id and username:
             # Проверяем, существует ли пользователь
             user = User.query.filter_by(telegram_id=telegram_id).first()
@@ -489,7 +495,7 @@ def init_routes(app):
             )
         
         stocks = query.paginate(
-            page=page, per_page=20, error_out=False
+            page=page, per_page=50, error_out=False
         )
         
         return render_template('stocks.html', stocks=stocks, search=search)
