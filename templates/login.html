@@ -18,6 +18,10 @@
                         <i class="fas fa-play-circle me-2"></i>
                         Демо-режим
                     </a>
+                    <a href="{{ url_for('debug_telegram') }}" class="btn btn-secondary btn-sm">
+                        <i class="fas fa-bug me-2"></i>
+                        Отладка Telegram
+                    </a>
                 </div>
                 
                     <p class="small text-muted" id="loginInfo">
@@ -46,42 +50,85 @@
         if (window.Telegram && window.Telegram.WebApp) {
             const tg = window.Telegram.WebApp;
             console.log('Telegram Web App доступен:', tg);
+            console.log('initData:', tg.initData);
+            console.log('initDataUnsafe:', tg.initDataUnsafe);
             
             // Расширяем приложение на весь экран
             tg.expand();
             
-            // Получаем данные пользователя
-            const user = tg.initDataUnsafe?.user;
-            console.log('Данные пользователя:', user);
+            // Пробуем разные способы получения данных пользователя
+            let user = null;
+            
+            // Способ 1: через initDataUnsafe
+            if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
+                user = tg.initDataUnsafe.user;
+                console.log('Пользователь найден через initDataUnsafe:', user);
+            }
+            
+            // Способ 2: парсим initData вручную
+            if (!user && tg.initData) {
+                try {
+                    const initData = new URLSearchParams(tg.initData);
+                    const userParam = initData.get('user');
+                    if (userParam) {
+                        user = JSON.parse(decodeURIComponent(userParam));
+                        console.log('Пользователь найден через initData:', user);
+                    }
+                } catch (e) {
+                    console.log('Ошибка парсинга initData:', e);
+                }
+            }
             
             if (user && user.id) {
                 console.log('Найден Telegram Web App пользователь:', user);
                 // Автоматически перенаправляем с данными Telegram
                 const params = new URLSearchParams({
                     telegram_id: user.id,
-                    username: user.username || user.first_name || 'User'
+                    username: user.username || user.first_name || `User${user.id}`
                 });
                 
                 window.location.href = `/login?${params.toString()}`;
                 return;
             }
             
-            // Показываем кнопку для входа через Telegram
+            // Показываем кнопку для входа через Telegram с улучшенной логикой
             const loginOptions = document.getElementById('loginOptions');
             const telegramBtn = document.createElement('button');
             telegramBtn.className = 'btn btn-info btn-lg mb-2';
             telegramBtn.innerHTML = '<i class="fab fa-telegram-plane me-2"></i>Войти через Telegram';
             telegramBtn.onclick = function() {
-                // Пытаемся получить данные пользователя еще раз
+                console.log('Нажата кнопка входа через Telegram');
+                
+                // Пытаемся получить данные пользователя всеми способами
+                let user = null;
+                
                 if (tg.initDataUnsafe?.user) {
-                    const user = tg.initDataUnsafe.user;
+                    user = tg.initDataUnsafe.user;
+                } else if (tg.initData) {
+                    try {
+                        const initData = new URLSearchParams(tg.initData);
+                        const userParam = initData.get('user');
+                        if (userParam) {
+                            user = JSON.parse(decodeURIComponent(userParam));
+                        }
+                    } catch (e) {
+                        console.log('Ошибка парсинга:', e);
+                    }
+                }
+                
+                if (user && user.id) {
                     const params = new URLSearchParams({
                         telegram_id: user.id,
-                        username: user.username || user.first_name || 'User'
+                        username: user.username || user.first_name || `User${user.id}`
                     });
                     window.location.href = `/login?${params.toString()}`;
                 } else {
-                    alert('Не удалось получить данные пользователя Telegram');
+                    // Показываем подробную информацию об ошибке
+                    console.log('Отладочная информация:');
+                    console.log('tg.initData:', tg.initData);
+                    console.log('tg.initDataUnsafe:', tg.initDataUnsafe);
+                    
+                    alert(`Не удалось получить данные пользователя Telegram.\n\nОтладочная информация:\ninitData: ${tg.initData ? 'есть' : 'нет'}\ninitDataUnsafe: ${tg.initDataUnsafe ? 'есть' : 'нет'}\n\nПопробуйте перезапустить приложение через бота.`);
                 }
             };
             
@@ -89,7 +136,7 @@
             
             // Обновляем информационное сообщение
             const loginInfo = document.getElementById('loginInfo');
-            loginInfo.innerHTML = 'Приложение запущено в Telegram. Используйте кнопку выше для входа или демо-режим для тестирования.';
+            loginInfo.innerHTML = 'Приложение запущено в Telegram. Нажмите кнопку выше для входа или используйте демо-режим.';
         } else {
             console.log('Telegram Web App API недоступен');
             // Показываем сообщение о том, что лучше открыть в Telegram

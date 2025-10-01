@@ -36,7 +36,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     keyboard = [
         [InlineKeyboardButton(
             "📊 Открыть InvestBot", 
-            web_app=WebAppInfo(url=f"{WEB_APP_URL}/login?telegram_id={user.id}&username={user.username}")
+            web_app=WebAppInfo(url=WEB_APP_URL)
         )],
         [InlineKeyboardButton("ℹ️ Помощь", callback_data="help")]
     ]
@@ -94,7 +94,7 @@ async def portfolio_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     keyboard = [
         [InlineKeyboardButton(
             "📊 Подробный просмотр", 
-            web_app=WebAppInfo(url=f"{WEB_APP_URL}/login?telegram_id={user.id}&username={user.username}")
+            web_app=WebAppInfo(url=WEB_APP_URL)
         )]
     ]
     
