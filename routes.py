@@ -1,6 +1,6 @@
 from flask import render_template, request, jsonify, redirect, url_for, session
 from database import db, User, Account, Stock, Transaction
-# from utils import calculate_portfolio_stats, get_top_stocks
+from utils import calculate_portfolio_stats, get_top_stocks
 import datetime
 
 def init_routes(app):
@@ -102,6 +102,302 @@ def init_routes(app):
                 pass
             return jsonify({'status': 'error', 'message': f'Migration error: {str(e)}'})
     
+    @app.route('/add_stocks')
+    def add_stocks():
+        """Добавить недостающие акции"""
+        try:
+            from database import Stock
+            
+            # Откатываем любую незавершенную транзакцию
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
+            
+            # Список всех акций для добавления
+            all_stocks = [
+                ('SBER', 'ПАО Сбербанк', 280.50, 'https://logos-world.net/wp-content/uploads/2020/12/Sberbank-Logo.png', 'Банки', 'Крупнейший банк России и Восточной Европы'),
+                ('GAZP', 'ПАО Газпром', 128.75, 'https://logos-world.net/wp-content/uploads/2020/12/Gazprom-Logo.png', 'Нефть и газ', 'Крупнейшая газовая компания мира'),
+                ('LKOH', 'ЛУКОЙЛ', 6850.00, 'https://logos-world.net/wp-content/uploads/2020/12/Lukoil-Logo.png', 'Нефть и газ', 'Одна из крупнейших нефтяных компаний мира'),
+                ('YNDX', 'Яндекс', 3420.00, 'https://logos-world.net/wp-content/uploads/2020/11/Yandex-Logo.png', 'IT', 'Российская IT-компания, поисковая система'),
+                ('ROSN', 'Роснефть', 565.20, 'https://logos-world.net/wp-content/uploads/2020/12/Rosneft-Logo.png', 'Нефть и газ', 'Крупнейшая нефтяная компания России'),
+                ('NVTK', 'НОВАТЭК', 1125.40, 'https://logos-world.net/wp-content/uploads/2020/12/Novatek-Logo.png', 'Нефть и газ', 'Крупнейший производитель природного газа в России'),
+                ('TCSG', 'TCS Group', 2890.60, 'https://logos-world.net/wp-content/uploads/2020/12/Tinkoff-Logo.png', 'Банки', 'Частный банк, лидер в сфере цифрового банкинга'),
+                ('RUAL', 'РУСАЛ', 45.85, 'https://logos-world.net/wp-content/uploads/2020/12/Rusal-Logo.png', 'Металлургия', 'Крупнейший производитель алюминия в России'),
+                ('MAGN', 'ММК', 52.30, 'https://logos-world.net/wp-content/uploads/2020/12/MMK-Logo.png', 'Металлургия', 'Магнитогорский металлургический комбинат'),
+                ('GMKN', 'ГМК Норникель', 15680.00, 'https://logos-world.net/wp-content/uploads/2020/12/Nornickel-Logo.png', 'Металлургия', 'Крупнейший производитель никеля и палладия'),
+                ('PLZL', 'Полюс', 12450.00, 'https://logos-world.net/wp-content/uploads/2020/12/Polyus-Logo.png', 'Металлургия', 'Крупнейший производитель золота в России'),
+                ('TATN', 'Татнефть', 685.20, 'https://logos-world.net/wp-content/uploads/2020/12/Tatneft-Logo.png', 'Нефть и газ', 'Крупная нефтяная компания Татарстана'),
+                ('SNGS', 'Сургутнефтегаз', 28.45, 'https://logos-world.net/wp-content/uploads/2020/12/Surgutneftegas-Logo.png', 'Нефть и газ', 'Нефтегазовая компания Западной Сибири'),
+                ('VTBR', 'ВТБ', 85.60, 'https://logos-world.net/wp-content/uploads/2020/12/VTB-Logo.png', 'Банки', 'Второй по величине банк России'),
+                ('ALRS', 'АЛРОСА', 78.90, 'https://logos-world.net/wp-content/uploads/2020/12/Alrosa-Logo.png', 'Металлургия', 'Крупнейшая алмазодобывающая компания мира'),
+                ('CHMF', 'Северсталь', 1245.80, 'https://logos-world.net/wp-content/uploads/2020/12/Severstal-Logo.png', 'Металлургия', 'Крупная металлургическая компания'),
+                ('NLMK', 'НЛМК', 185.40, 'https://logos-world.net/wp-content/uploads/2020/12/NLMK-Logo.png', 'Металлургия', 'Новолипецкий металлургический комбинат'),
+                ('MOEX', 'Московская Биржа', 198.50, 'https://logos-world.net/wp-content/uploads/2020/12/MOEX-Logo.png', 'Финансы', 'Крупнейшая биржевая группа России'),
+                ('AFLT', 'Аэрофлот', 45.20, 'https://logos-world.net/wp-content/uploads/2020/12/Aeroflot-Logo.png', 'Транспорт', 'Национальный авиаперевозчик России'),
+                ('PHOR', 'ФосАгро', 6890.00, 'https://logos-world.net/wp-content/uploads/2020/12/PhosAgro-Logo.png', 'Химия', 'Ведущий производитель фосфорных удобрений'),
+                ('MTSS', 'МТС', 285.40, 'https://logos-world.net/wp-content/uploads/2020/12/MTS-Logo.png', 'Телеком', 'Крупнейший мобильный оператор России'),
+                ('FEES', 'ФСК ЕЭС', 0.185, 'https://logos-world.net/wp-content/uploads/2020/12/FGC-UES-Logo.png', 'Энергетика', 'Федеральная сетевая компания'),
+                ('HYDR', 'РусГидро', 0.85, 'https://logos-world.net/wp-content/uploads/2020/12/RusHydro-Logo.png', 'Энергетика', 'Крупнейшая гидроэнергетическая компания России'),
+                ('IRAO', 'Интер РАО', 4.25, 'https://logos-world.net/wp-content/uploads/2020/12/Inter-RAO-Logo.png', 'Энергетика', 'Энергетическая компания'),
+                ('PIKK', 'ПИК', 890.20, 'https://logos-world.net/wp-content/uploads/2020/12/PIK-Logo.png', 'Недвижимость', 'Крупнейший девелопер России')
+            ]
+            
+            added_count = 0
+            updated_count = 0
+            
+            for ticker, name, price, logo_url, sector, description in all_stocks:
+                try:
+                    # Проверяем, существует ли акция
+                    existing_stock = Stock.query.filter_by(ticker=ticker).first()
+                    
+                    if existing_stock:
+                        # Обновляем существующую акцию
+                        existing_stock.logo_url = logo_url
+                        existing_stock.sector = sector
+                        existing_stock.description = description
+                        existing_stock.price = price
+                        updated_count += 1
+                    else:
+                        # Добавляем новую акцию
+                        new_stock = Stock(
+                            ticker=ticker,
+                            name=name,
+                            price=price,
+                            logo_url=logo_url,
+                            sector=sector,
+                            description=description
+                        )
+                        db.session.add(new_stock)
+                        added_count += 1
+                        
+                except Exception as e:
+                    print(f"Error processing {ticker}: {e}")
+                    continue
+            
+            try:
+                db.session.commit()
+                return jsonify({
+                    'status': 'success', 
+                    'message': f'Added {added_count} new stocks, updated {updated_count} existing stocks'
+                })
+            except Exception as e:
+                db.session.rollback()
+                return jsonify({'status': 'error', 'message': f'Commit failed: {str(e)}'})
+                
+        except Exception as e:
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
+            return jsonify({'status': 'error', 'message': f'Error: {str(e)}'})
+    
+    @app.route('/update_stocks_from_moex')
+    def update_stocks_from_moex():
+        """Загрузить актуальные акции с Московской биржи"""
+        try:
+            import requests
+            from database import Stock
+            
+            # Откатываем любую незавершенную транзакцию
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
+            
+            # API Московской биржи для получения списка акций
+            moex_url = "https://iss.moex.com/iss/engines/stock/markets/shares/boards/TQBR/securities.json"
+            
+            try:
+                response = requests.get(moex_url, timeout=30)
+                response.raise_for_status()
+                data = response.json()
+                
+                # Извлекаем данные об акциях
+                securities = data.get('securities', {})
+                columns = securities.get('columns', [])
+                rows = securities.get('data', [])
+                
+                if not columns or not rows:
+                    return jsonify({'status': 'error', 'message': 'No data received from MOEX'})
+                
+                # Создаем словарь для удобного доступа к данным
+                secid_idx = columns.index('SECID') if 'SECID' in columns else 0
+                shortname_idx = columns.index('SHORTNAME') if 'SHORTNAME' in columns else 1
+                prevprice_idx = columns.index('PREVPRICE') if 'PREVPRICE' in columns else -1
+                
+                added_count = 0
+                updated_count = 0
+                
+                for row in rows:
+                    try:
+                        ticker = row[secid_idx]
+                        name = row[shortname_idx] if shortname_idx < len(row) else ticker
+                        price = float(row[prevprice_idx]) if prevprice_idx >= 0 and prevprice_idx < len(row) and row[prevprice_idx] else 0.0
+                        
+                        # Пропускаем акции без названия или с нулевой ценой
+                        if not ticker or not name or price <= 0:
+                            continue
+                            
+                        # Определяем сектор по тикеру (упрощенная логика)
+                        sector = get_sector_by_ticker(ticker)
+                        
+                        # Проверяем, существует ли акция
+                        existing_stock = Stock.query.filter_by(ticker=ticker).first()
+                        
+                        if existing_stock:
+                            # Обновляем цену существующей акции
+                            existing_stock.price = price
+                            if not existing_stock.sector:
+                                existing_stock.sector = sector
+                            updated_count += 1
+                        else:
+                            # Добавляем новую акцию
+                            new_stock = Stock(
+                                ticker=ticker,
+                                name=name,
+                                price=price,
+                                sector=sector,
+                                description=f"Акция {name} торгуется на Московской бирже"
+                            )
+                            db.session.add(new_stock)
+                            added_count += 1
+                            
+                    except (ValueError, IndexError) as e:
+                        print(f"Error processing row {row}: {e}")
+                        continue
+                
+                try:
+                    db.session.commit()
+                    return jsonify({
+                        'status': 'success',
+                        'message': f'Updated {updated_count} stocks, added {added_count} new stocks from MOEX',
+                        'total_processed': len(rows)
+                    })
+                except Exception as e:
+                    db.session.rollback()
+                    return jsonify({'status': 'error', 'message': f'Database commit failed: {str(e)}'})
+                    
+            except requests.RequestException as e:
+                return jsonify({'status': 'error', 'message': f'Failed to fetch data from MOEX: {str(e)}'})
+                
+        except Exception as e:
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
+            return jsonify({'status': 'error', 'message': f'Error: {str(e)}'})
+
+def get_sector_by_ticker(ticker):
+    """Определяет сектор по тикеру акции"""
+    sectors = {
+        # Банки
+        'SBER': 'Банки', 'VTBR': 'Банки', 'TCSG': 'Банки', 'CBOM': 'Банки',
+        # Нефть и газ
+        'GAZP': 'Нефть и газ', 'LKOH': 'Нефть и газ', 'ROSN': 'Нефть и газ', 
+        'NVTK': 'Нефть и газ', 'TATN': 'Нефть и газ', 'SNGS': 'Нефть и газ',
+        # Металлургия
+        'GMKN': 'Металлургия', 'RUAL': 'Металлургия', 'MAGN': 'Металлургия',
+        'NLMK': 'Металлургия', 'CHMF': 'Металлургия', 'ALRS': 'Металлургия',
+        'PLZL': 'Металлургия',
+        # IT
+        'YNDX': 'IT', 'MAIL': 'IT', 'OZON': 'IT', 'VKCO': 'IT',
+        # Телеком
+        'MTSS': 'Телеком', 'RTKM': 'Телеком', 'MGTS': 'Телеком',
+        # Энергетика
+        'FEES': 'Энергетика', 'HYDR': 'Энергетика', 'IRAO': 'Энергетика',
+        'LSRG': 'Энергетика', 'MSRS': 'Энергетика',
+        # Транспорт
+        'AFLT': 'Транспорт', 'FESH': 'Транспорт',
+        # Финансы
+        'MOEX': 'Финансы', 'SPBE': 'Финансы',
+        # Химия
+        'PHOR': 'Химия', 'AKRN': 'Химия',
+        # Недвижимость
+        'PIKK': 'Недвижимость', 'LSRG': 'Недвижимость', 'ETALON': 'Недвижимость',
+        # Ритейл
+        'FIVE': 'Ритейл', 'MGNT': 'Ритейл', 'DIXY': 'Ритейл'
+    }
+    return sectors.get(ticker, 'Прочие')
+
+    @app.route('/update_prices')
+    def update_prices():
+        """Обновить цены всех акций с MOEX"""
+        try:
+            import requests
+            from database import Stock
+            
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
+            
+            # Получаем все тикеры из БД
+            stocks = Stock.query.all()
+            if not stocks:
+                return jsonify({'status': 'error', 'message': 'No stocks in database'})
+            
+            tickers = [stock.ticker for stock in stocks]
+            
+            # API для получения текущих цен
+            moex_url = "https://iss.moex.com/iss/engines/stock/markets/shares/boards/TQBR/securities.json"
+            
+            try:
+                response = requests.get(moex_url, timeout=30)
+                response.raise_for_status()
+                data = response.json()
+                
+                securities = data.get('securities', {})
+                columns = securities.get('columns', [])
+                rows = securities.get('data', [])
+                
+                if not columns or not rows:
+                    return jsonify({'status': 'error', 'message': 'No price data from MOEX'})
+                
+                secid_idx = columns.index('SECID') if 'SECID' in columns else 0
+                prevprice_idx = columns.index('PREVPRICE') if 'PREVPRICE' in columns else -1
+                
+                updated_count = 0
+                price_updates = {}
+                
+                # Создаем словарь цен из ответа MOEX
+                for row in rows:
+                    try:
+                        ticker = row[secid_idx]
+                        price = float(row[prevprice_idx]) if prevprice_idx >= 0 and prevprice_idx < len(row) and row[prevprice_idx] else None
+                        
+                        if ticker in tickers and price and price > 0:
+                            price_updates[ticker] = price
+                    except (ValueError, IndexError):
+                        continue
+                
+                # Обновляем цены в БД
+                for stock in stocks:
+                    if stock.ticker in price_updates:
+                        stock.price = price_updates[stock.ticker]
+                        updated_count += 1
+                
+                try:
+                    db.session.commit()
+                    return jsonify({
+                        'status': 'success',
+                        'message': f'Updated prices for {updated_count} stocks',
+                        'total_stocks': len(stocks)
+                    })
+                except Exception as e:
+                    db.session.rollback()
+                    return jsonify({'status': 'error', 'message': f'Database update failed: {str(e)}'})
+                    
+            except requests.RequestException as e:
+                return jsonify({'status': 'error', 'message': f'Failed to fetch prices: {str(e)}'})
+                
+        except Exception as e:
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
+            return jsonify({'status': 'error', 'message': f'Error: {str(e)}'})
+    
     @app.route('/')
     def index():
         current_year = datetime.datetime.now().year
@@ -137,6 +433,27 @@ def init_routes(app):
         
         return render_template('login.html')
     
+    @app.route('/demo_login')
+    def demo_login():
+        """Демо-вход для тестирования без Telegram"""
+        # Создаем или получаем демо-пользователя
+        demo_user = User.query.filter_by(telegram_id='demo_user').first()
+        
+        if not demo_user:
+            demo_user = User(telegram_id='demo_user', username='Демо пользователь')
+            db.session.add(demo_user)
+            
+            # Создаем несколько счетов
+            main_account = Account(name="Основной счет", balance=50000.0, user=demo_user)
+            second_account = Account(name="Инвестиционный счет", balance=100000.0, user=demo_user)
+            db.session.add(main_account)
+            db.session.add(second_account)
+            
+            db.session.commit()
+        
+        session['user_id'] = demo_user.id
+        return redirect(url_for('dashboard'))
+    
     @app.route('/dashboard')
     def dashboard():
         """Главная панель пользователя"""
@@ -147,8 +464,16 @@ def init_routes(app):
         accounts = Account.query.filter_by(user_id=user.id).all()
         
         # Получаем статистику портфеля
-        # portfolio_stats = calculate_portfolio_stats(user.id)
-        portfolio_stats = {'total_balance': 0, 'positions': []}
+        portfolio_stats = calculate_portfolio_stats(user.id)
+        if not portfolio_stats:
+            portfolio_stats = {
+                'total_balance': sum(acc.balance for acc in accounts),
+                'total_invested': 0,
+                'total_current_value': 0,
+                'total_profit_loss': 0,
+                'total_profit_loss_percent': 0,
+                'positions': []
+            }
         
         # Получаем последние транзакции
         recent_transactions = Transaction.query.join(Account).filter(
@@ -156,8 +481,9 @@ def init_routes(app):
         ).order_by(Transaction.timestamp.desc()).limit(10).all()
         
         # Получаем топ акций
-        # top_stocks = get_top_stocks(5)
-        top_stocks = Stock.query.limit(5).all()
+        top_stocks = get_top_stocks(6)
+        if not top_stocks:
+            top_stocks = Stock.query.filter(Stock.price > 0).order_by(Stock.price.desc()).limit(6).all()
         
         return render_template('dashboard.html', 
                              user=user, 
@@ -439,3 +765,64 @@ def init_routes(app):
         db.session.commit()
         
         return jsonify({'success': True, 'new_balance': account.balance})
+    
+    @app.route('/api/stock_price/<ticker>')
+    def get_stock_price(ticker):
+        """API для получения актуальной цены акции"""
+        try:
+            import requests
+            
+            # Получаем цену с MOEX
+            moex_url = f"https://iss.moex.com/iss/engines/stock/markets/shares/boards/TQBR/securities/{ticker}.json"
+            
+            response = requests.get(moex_url, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+            
+            # Извлекаем текущую цену
+            marketdata = data.get('marketdata', {})
+            columns = marketdata.get('columns', [])
+            rows = marketdata.get('data', [])
+            
+            if columns and rows and len(rows) > 0:
+                last_idx = columns.index('LAST') if 'LAST' in columns else -1
+                
+                if last_idx >= 0 and len(rows[0]) > last_idx and rows[0][last_idx]:
+                    current_price = float(rows[0][last_idx])
+                    
+                    # Обновляем цену в базе данных
+                    stock = Stock.query.filter_by(ticker=ticker).first()
+                    if stock:
+                        stock.price = current_price
+                        db.session.commit()
+                    
+                    return jsonify({
+                        'success': True,
+                        'ticker': ticker,
+                        'price': current_price
+                    })
+            
+            # Если не удалось получить текущую цену, возвращаем из БД
+            stock = Stock.query.filter_by(ticker=ticker).first()
+            if stock:
+                return jsonify({
+                    'success': True,
+                    'ticker': ticker,
+                    'price': stock.price,
+                    'cached': True
+                })
+            
+            return jsonify({'success': False, 'error': 'Stock not found'}), 404
+            
+        except Exception as e:
+            # В случае ошибки возвращаем цену из БД
+            stock = Stock.query.filter_by(ticker=ticker).first()
+            if stock:
+                return jsonify({
+                    'success': True,
+                    'ticker': ticker,
+                    'price': stock.price,
+                    'cached': True,
+                    'error': str(e)
+                })
+            return jsonify({'success': False, 'error': str(e)}), 500

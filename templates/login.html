@@ -1,26 +1,61 @@
 {% extends 'layout.html' %}
 
 {% block content %}
-<div class="row justify-content-center">
+<div class="row justify-content-center mt-5">
     <div class="col-md-6">
-        <div class="card">
-            <div class="card-body text-center">
-                <h3>Вход в InvestBot</h3>
-                <p class="text-muted">Используйте веб-приложение в Telegram</p>
+        <div class="card shadow-lg">
+            <div class="card-body text-center p-5">
+                <h2 class="mb-4">Вход в InvestBot</h2>
+                <p class="text-muted mb-4">Ваш помощник в мире инвестиций</p>
                 
-                <div class="mt-4">
-                    <i class="fab fa-telegram fa-3x text-primary mb-3"></i>
-                    <p>Для доступа к InvestBot откройте приложение через Telegram бот</p>
+                <div class="mt-4 mb-4">
+                    <i class="fas fa-chart-line fa-4x text-primary mb-3"></i>
+                </div>
+                
+                <!-- Демо-вход -->
+                <div class="d-grid gap-3">
+                    <a href="{{ url_for('demo_login') }}" class="btn btn-primary btn-lg">
+                        <i class="fas fa-play-circle me-2"></i>
+                        Демо-режим
+                    </a>
+                    
+                    <div class="divider my-3">
+                        <span class="text-muted">или</span>
+                    </div>
+                    
+                    <button class="btn btn-outline-primary btn-lg" disabled>
+                        <i class="fab fa-telegram me-2"></i>
+                        Войти через Telegram
+                    </button>
                 </div>
                 
                 <div class="mt-4">
                     <p class="small text-muted">
-                        Это веб-приложение предназначено для использования внутри Telegram.<br>
-                        Обратитесь к боту @InvestBot_bot в Telegram для получения доступа.
+                        Для полноценной работы с ботом подключите Telegram.<br>
+                        В демо-режиме вы можете протестировать все функции приложения.
                     </p>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<style>
+.divider {
+    display: flex;
+    align-items: center;
+    text-align: center;
+}
+
+.divider::before,
+.divider::after {
+    content: '';
+    flex: 1;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.divider span {
+    padding: 0 10px;
+}
+</style>
 {% endblock %}

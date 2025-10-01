@@ -1,32 +1,44 @@
 {% extends 'layout.html' %}
 
 {% block content %}
+<!-- Главный баннер -->
 <div class="px-4 py-5 my-5 text-center fade-in">
-    <i class="fas fa-chart-line fa-4x text-primary mb-4"></i>
-    <h1 class="display-5 fw-bold">Добро пожаловать в InvestBot</h1>
+    <div class="mb-4">
+        <i class="fas fa-chart-line fa-5x mb-3" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"></i>
+    </div>
+    <h1 class="display-4 fw-bold mb-3">InvestBot</h1>
     <div class="col-lg-8 mx-auto">
-      <p class="lead mb-4">Ваш персональный помощник для отслеживания инвестиций в российские акции. Управляйте счетами, анализируйте портфель и следите за рынком в реальном времени.</p>
-      <div class="d-grid gap-2 d-sm-flex justify-content-sm-center">
-        <a href="{{ url_for('login') }}" class="btn btn-primary btn-lg px-4 btn-action">
-          <i class="fas fa-rocket me-2"></i>Начать работу
+      <p class="lead mb-4 text-muted">Ваш персональный помощник для отслеживания инвестиций в российские акции. Управляйте счетами, анализируйте портфель и следите за рынком в реальном времени.</p>
+      <div class="d-grid gap-3 d-sm-flex justify-content-sm-center">
+        <a href="{{ url_for('demo_login') }}" class="btn btn-primary btn-lg px-5 btn-action shadow">
+          <i class="fas fa-play-circle me-2"></i>Попробовать демо
         </a>
-        <a href="{{ url_for('stocks') }}" class="btn btn-outline-secondary btn-lg px-4 btn-action">
-          <i class="fas fa-list me-2"></i>Просмотреть акции
+        <a href="{{ url_for('stocks') }}" class="btn btn-outline-primary btn-lg px-5 btn-action">
+          <i class="fas fa-chart-bar me-2"></i>Акции
         </a>
       </div>
-    </div>
-</div>
-
-<!-- Информация о Telegram -->
-<div class="row justify-content-center mb-5">
-    <div class="col-md-8">
-        <div class="alert alert-info text-center">
-            <h5><i class="fab fa-telegram me-2"></i>Telegram Web App</h5>
-            <p class="mb-3">Это приложение предназначено для использования через Telegram бот.</p>
-            <p class="small text-muted mb-0">
-                Для полного доступа ко всем функциям откройте приложение через @InvestBot_bot в Telegram
-            </p>
+      
+      <!-- Быстрая статистика -->
+      <div class="row mt-5 g-3">
+        <div class="col-md-4">
+          <div class="p-3 bg-white rounded shadow-sm">
+            <h3 class="text-primary mb-0">300+</h3>
+            <small class="text-muted">Российских акций</small>
+          </div>
         </div>
+        <div class="col-md-4">
+          <div class="p-3 bg-white rounded shadow-sm">
+            <h3 class="text-success mb-0">24/7</h3>
+            <small class="text-muted">Доступ к портфелю</small>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="p-3 bg-white rounded shadow-sm">
+            <h3 class="text-info mb-0">Real-time</h3>
+            <small class="text-muted">Актуальные котировки</small>
+          </div>
+        </div>
+      </div>
     </div>
 </div>
 
