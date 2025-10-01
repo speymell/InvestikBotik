@@ -298,6 +298,54 @@ class StockAPIService:
         
         return fallback_stocks
     
+    def get_stock_history(self, ticker, days=1):
+        """Получает историю цен акции с MOEX"""
+        try:
+            from datetime import datetime, timedelta
+            
+            # Вычисляем даты
+            end_date = datetime.now()
+            start_date = end_date - timedelta(days=days)
+            
+            # Форматируем даты для API
+            start_str = start_date.strftime('%Y-%m-%d')
+            end_str = end_date.strftime('%Y-%m-%d')
+            
+            # URL для получения исторических данных
+            url = f"{self.moex_base_url}/history/engines/stock/markets/shares/boards/TQBR/securities/{ticker}.json"
+            
+            params = {
+                'from': start_str,
+                'till': end_str,
+                'iss.meta': 'off',
+                'iss.only': 'history',
+                'history.columns': 'TRADEDATE,CLOSE'
+            }
+            
+            response = self.session.get(url, params=params, timeout=10)
+            response.raise_for_status()
+            
+            data = response.json()
+            
+            if 'history' in data and 'data' in data['history']:
+                history_data = []
+                for row in data['history']['data']:
+                    if row and len(row) >= 2 and row[1]:  # Проверяем что есть дата и цена
+                        history_data.append({
+                            'date': row[0],
+                            'price': float(row[1])
+                        })
+                
+                logger.info(f"Получено {len(history_data)} точек истории для {ticker}")
+                return history_data
+            
+            logger.warning(f"Нет данных истории для {ticker}")
+            return []
+            
+        except Exception as e:
+            logger.error(f"Ошибка получения истории для {ticker}: {e}")
+            return []
+    
     def update_stock_prices(self):
         """Обновляет цены существующих акций"""
         try:

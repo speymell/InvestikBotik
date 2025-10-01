@@ -1,0 +1,79 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h4><i class="fas fa-image me-2"></i>Обновление логотипов акций</h4>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Эта функция обновит логотипы для всех акций в базе данных.
+                    Каждая акция получит уникальный цветной логотип с тикером.
+                </div>
+                
+                <div id="updateStatus" class="mb-3" style="display: none;">
+                    <!-- Статус обновления -->
+                </div>
+                
+                <button id="updateBtn" class="btn btn-primary btn-lg" onclick="updateLogos()">
+                    <i class="fas fa-sync-alt me-2"></i>Обновить все логотипы
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function updateLogos() {
+    const btn = document.getElementById('updateBtn');
+    const statusDiv = document.getElementById('updateStatus');
+    
+    // Блокируем кнопку
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Обновление...';
+    
+    // Показываем статус
+    statusDiv.style.display = 'block';
+    statusDiv.className = 'alert alert-warning';
+    statusDiv.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Обновление логотипов...';
+    
+    fetch('/admin/update_logos')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                statusDiv.className = 'alert alert-success';
+                statusDiv.innerHTML = `
+                    <i class="fas fa-check-circle me-2"></i>
+                    <strong>Успешно!</strong><br>
+                    ${data.message}<br>
+                    <small>Обновлено: ${data.updated} из ${data.total}</small>
+                `;
+                
+                // Разблокируем кнопку
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-check me-2"></i>Готово!';
+                
+                setTimeout(() => {
+                    btn.innerHTML = '<i class="fas fa-sync-alt me-2"></i>Обновить все логотипы';
+                }, 3000);
+            } else {
+                throw new Error(data.error || 'Неизвестная ошибка');
+            }
+        })
+        .catch(error => {
+            statusDiv.className = 'alert alert-danger';
+            statusDiv.innerHTML = `
+                <i class="fas fa-exclamation-circle me-2"></i>
+                <strong>Ошибка!</strong><br>
+                ${error.message}
+            `;
+            
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-sync-alt me-2"></i>Обновить все логотипы';
+        });
+}
+</script>
+{% endblock %}

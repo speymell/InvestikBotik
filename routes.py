@@ -644,7 +644,7 @@ def init_routes(app):
             if not data:
                 return jsonify({'error': 'Некорректные данные запроса'}), 400
             
-            account_id = data.get('account_id')
+            account_id = int(data.get('account_id'))
             amount = float(data.get('amount', 0))
         except Exception as e:
             return jsonify({'error': f'Ошибка обработки данных: {str(e)}'}), 400
@@ -672,22 +672,6 @@ def init_routes(app):
         
         db.session.add(transaction)
         db.session.commit()
-        
-        return jsonify({'success': True, 'new_balance': account.balance})
-    
-    @app.route('/api/withdraw', methods=['POST'])
-    def withdraw():
-        """API для вывода средств"""
-        if 'user_id' not in session:
-            return jsonify({'error': 'Не авторизован'}), 401
-        
-        data = request.get_json()
-        account_id = data.get('account_id')
-        amount = float(data.get('amount', 0))
-        
-        if amount <= 0:
-            return jsonify({'error': 'Сумма должна быть положительной'}), 400
-        
         account = Account.query.filter_by(
             id=account_id, 
             user_id=session['user_id']
@@ -721,8 +705,8 @@ def init_routes(app):
             return jsonify({'error': 'Не авторизован'}), 401
         
         data = request.get_json()
-        account_id = data.get('account_id')
-        stock_id = data.get('stock_id')
+        account_id = int(data.get('account_id'))
+        stock_id = int(data.get('stock_id'))
         quantity = int(data.get('quantity', 0))
         
         if quantity <= 0:
@@ -768,8 +752,8 @@ def init_routes(app):
             return jsonify({'error': 'Не авторизован'}), 401
         
         data = request.get_json()
-        account_id = data.get('account_id')
-        stock_id = data.get('stock_id')
+        account_id = int(data.get('account_id'))
+        stock_id = int(data.get('stock_id'))
         quantity = int(data.get('quantity', 0))
         price = float(data.get('price', 0))
         purchase_date = data.get('purchase_date')  # формат: YYYY-MM-DD
@@ -831,8 +815,8 @@ def init_routes(app):
             return jsonify({'error': 'Не авторизован'}), 401
         
         data = request.get_json()
-        account_id = data.get('account_id')
-        stock_id = data.get('stock_id')
+        account_id = int(data.get('account_id'))
+        stock_id = int(data.get('stock_id'))
         quantity = int(data.get('quantity', 0))
         
         if quantity <= 0:
@@ -904,6 +888,89 @@ def init_routes(app):
                 'balance': acc.balance
             } for acc in accounts]
         })
+    
+    @app.route('/api/stock_history/<ticker>')
+    def get_stock_history_api(ticker):
+        """API для получения истории цен акции"""
+        try:
+            from stock_api import stock_api_service
+            
+            # Получаем параметр days (по умолчанию 7)
+            days = request.args.get('days', 7, type=int)
+            
+            # Ограничиваем максимум 30 дней
+            if days > 30:
+                days = 30
+            
+            # Получаем историю с MOEX
+            history = stock_api_service.get_stock_history(ticker, days)
+            
+            if history:
+                return jsonify({
+                    'success': True,
+                    'ticker': ticker,
+                    'days': days,
+                    'data': history
+                })
+            else:
+                # Если нет данных с MOEX, возвращаем пустой массив
+                return jsonify({
+                    'success': False,
+                    'ticker': ticker,
+                    'message': 'Нет данных с MOEX',
+                    'data': []
+                })
+                
+        except Exception as e:
+            logger.error(f"Ошибка получения истории для {ticker}: {e}")
+            return jsonify({
+                'success': False,
+                'error': str(e),
+                'data': []
+            }), 500
+    
+    @app.route('/admin/logos')
+    def admin_logos_page():
+        """Страница обновления логотипов"""
+        if 'user_id' not in session:
+            return redirect(url_for('login'))
+        
+        return render_template('admin_update_logos.html')
+    
+    @app.route('/admin/update_logos')
+    def admin_update_logos():
+        """Обновление всех логотипов акций"""
+        if 'user_id' not in session:
+            return jsonify({'error': 'Не авторизован'}), 401
+        
+        try:
+            from stock_api import stock_api_service
+            
+            stocks = Stock.query.all()
+            updated_count = 0
+            
+            for stock in stocks:
+                try:
+                    new_logo_url = stock_api_service._get_logo_url(stock.ticker)
+                    if new_logo_url:
+                        stock.logo_url = new_logo_url
+                        updated_count += 1
+                except Exception as e:
+                    logger.error(f"Ошибка обновления логотипа для {stock.ticker}: {e}")
+                    continue
+            
+            db.session.commit()
+            
+            return jsonify({
+                'success': True,
+                'message': f'Обновлено {updated_count} логотипов из {len(stocks)}',
+                'updated': updated_count,
+                'total': len(stocks)
+            })
+            
+        except Exception as e:
+            logger.error(f"Ошибка обновления логотипов: {e}")
+            return jsonify({'error': str(e)}), 500
     
     @app.route('/api/create_account', methods=['POST'])
     def create_account():
