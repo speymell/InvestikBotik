@@ -16,17 +16,19 @@ def init_routes(app):
         try:
             from stock_api import stock_api_service
             
+            # Получаем данные с MOEX
             result = stock_api_service.sync_stocks_to_database()
             
-            if result['success']:
+            if result and result.get('success'):
                 return jsonify({
                     'status': 'success',
                     'message': f'Синхронизация завершена. Добавлено: {result["added"]}, обновлено: {result["updated"]}, всего: {result["total"]} акций'
                 })
             else:
+                error_msg = result.get('error', 'Неизвестная ошибка') if result else 'Не удалось получить результат'
                 return jsonify({
                     'status': 'error',
-                    'message': f'Ошибка синхронизации: {result["error"]}'
+                    'message': f'Ошибка синхронизации: {error_msg}'
                 }), 500
                 
         except Exception as e:
@@ -59,6 +61,30 @@ def init_routes(app):
             return jsonify({
                 'status': 'error',
                 'message': f'Ошибка обновления цен: {str(e)}'
+            }), 500
+    
+    @app.route('/admin/test-moex')
+    def test_moex():
+        """Тестирование MOEX API"""
+        try:
+            from stock_api import stock_api_service
+            
+            # Тестируем получение акций
+            stocks = stock_api_service.get_all_stocks()
+            
+            return jsonify({
+                'status': 'success',
+                'message': f'Получено {len(stocks)} акций с MOEX',
+                'sample_stocks': stocks[:5] if stocks else [],
+                'total_count': len(stocks)
+            })
+            
+        except Exception as e:
+            import traceback
+            return jsonify({
+                'status': 'error',
+                'message': f'Ошибка тестирования MOEX: {str(e)}',
+                'traceback': traceback.format_exc()
             }), 500
     
     @app.route('/admin')

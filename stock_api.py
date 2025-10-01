@@ -24,11 +24,21 @@ class StockAPIService:
     def get_all_stocks(self):
         """Получает список всех акций с MOEX"""
         try:
-            # Получаем список акций с основного рынка
-            url = f"{self.moex_base_url}/engines/stock/markets/shares/boards/TQBR/securities.json"
+            # Получаем список акций с основного рынка - упрощенный запрос
+            url = f"{self.moex_base_url}/engines/stock/markets/shares/securities.json"
             
-            response = self.session.get(url, timeout=30)
+            # Добавляем параметры для получения всех данных
+            params = {
+                'iss.meta': 'off',  # Отключаем метаданные
+                'iss.only': 'securities',  # Только секции securities
+                'securities.columns': 'SECID,SHORTNAME,PREVPRICE,SECTYPE,REGNUMBER'  # Только нужные колонки
+            }
+            
+            response = self.session.get(url, params=params, timeout=30)
             response.raise_for_status()
+            
+            logger.info(f"MOEX API response status: {response.status_code}")
+            logger.info(f"MOEX API URL: {response.url}")
             
             data = response.json()
             
@@ -47,17 +57,27 @@ class StockAPIService:
                     security = dict(zip(columns, row))
                     
                     # Фильтруем только акции (не облигации, ETF и т.д.)
-                    if (security.get('SECTYPE') == 'common_share' and 
-                        security.get('SECID') and 
-                        security.get('SHORTNAME') and
-                        security.get('PREVPRICE')):
+                    sectype = security.get('SECTYPE', '')
+                    secid = security.get('SECID', '')
+                    shortname = security.get('SHORTNAME', '')
+                    prevprice = security.get('PREVPRICE')
+                    
+                    # Более гибкая фильтрация
+                    if (secid and shortname and 
+                        ('share' in sectype.lower() or sectype == '1') and
+                        len(secid) <= 6):  # Российские тикеры обычно до 6 символов
+                        
+                        try:
+                            price = float(prevprice) if prevprice and prevprice != '' else 0.0
+                        except (ValueError, TypeError):
+                            price = 0.0
                         
                         stocks.append({
-                            'ticker': security['SECID'],
-                            'name': security['SHORTNAME'],
-                            'price': float(security['PREVPRICE']) if security['PREVPRICE'] else 0.0,
-                            'sector': self._get_sector_by_ticker(security['SECID']),
-                            'description': security.get('REGNUMBER', '')
+                            'ticker': secid,
+                            'name': shortname,
+                            'price': price,
+                            'sector': self._get_sector_by_ticker(secid),
+                            'description': f"Российская акция {shortname}"
                         })
                         
                 except Exception as e:

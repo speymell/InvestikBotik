@@ -51,6 +51,7 @@
                 <div class="row mt-3">
                     <div class="col-md-6">
                         <h4 class="text-success" id="currentPrice">
+                            {% if stock.price and stock.price > 0 %}
                                 {{ "%.2f"|format(stock.price) }} ₽
                             {% else %}
                                 <span class="text-muted">Цена не доступна</span>
