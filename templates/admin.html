@@ -1,0 +1,218 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h2><i class="fas fa-cogs me-2"></i>Админ-панель</h2>
+        <p class="text-muted">Управление акциями и данными</p>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-sync-alt me-2"></i>Синхронизация акций</h5>
+            </div>
+            <div class="card-body">
+                <p>Получить актуальный список акций с Московской биржи (MOEX)</p>
+                <button class="btn btn-primary" onclick="syncStocks()">
+                    <i class="fas fa-download me-2"></i>Синхронизировать акции
+                </button>
+                <div id="syncResult" class="mt-3"></div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-chart-line me-2"></i>Обновление цен</h5>
+            </div>
+            <div class="card-body">
+                <p>Обновить цены всех акций в базе данных</p>
+                <button class="btn btn-success" onclick="updatePrices()">
+                    <i class="fas fa-refresh me-2"></i>Обновить цены
+                </button>
+                <div id="pricesResult" class="mt-3"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-chart-bar me-2"></i>Статистика</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <h3 class="text-primary" id="totalStocks">-</h3>
+                            <small class="text-muted">Всего акций</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <h3 class="text-success" id="totalUsers">-</h3>
+                            <small class="text-muted">Пользователей</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <h3 class="text-info" id="totalAccounts">-</h3>
+                            <small class="text-muted">Счетов</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <h3 class="text-warning" id="totalTransactions">-</h3>
+                            <small class="text-muted">Транзакций</small>
+                        </div>
+                    </div>
+                </div>
+                <button class="btn btn-outline-primary mt-3" onclick="loadStats()">
+                    <i class="fas fa-refresh me-2"></i>Обновить статистику
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-list me-2"></i>Последние акции</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Тикер</th>
+                                <th>Название</th>
+                                <th>Сектор</th>
+                                <th>Цена</th>
+                                <th>Обновлено</th>
+                            </tr>
+                        </thead>
+                        <tbody id="stocksList">
+                            <tr>
+                                <td colspan="5" class="text-center text-muted">Загрузка...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Функция синхронизации акций
+async function syncStocks() {
+    const button = event.target;
+    const resultDiv = document.getElementById('syncResult');
+    
+    button.disabled = true;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Синхронизация...';
+    
+    try {
+        const response = await fetch('/admin/sync-stocks');
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            resultDiv.innerHTML = `<div class="alert alert-success">${data.message}</div>`;
+            loadStats();
+            loadStocksList();
+        } else {
+            resultDiv.innerHTML = `<div class="alert alert-danger">Ошибка: ${data.message}</div>`;
+        }
+    } catch (error) {
+        resultDiv.innerHTML = `<div class="alert alert-danger">Ошибка: ${error.message}</div>`;
+    } finally {
+        button.disabled = false;
+        button.innerHTML = '<i class="fas fa-download me-2"></i>Синхронизировать акции';
+    }
+}
+
+// Функция обновления цен
+async function updatePrices() {
+    const button = event.target;
+    const resultDiv = document.getElementById('pricesResult');
+    
+    button.disabled = true;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Обновление...';
+    
+    try {
+        const response = await fetch('/admin/update-prices');
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            resultDiv.innerHTML = `<div class="alert alert-success">${data.message}</div>`;
+            loadStocksList();
+        } else {
+            resultDiv.innerHTML = `<div class="alert alert-danger">Ошибка: ${data.message}</div>`;
+        }
+    } catch (error) {
+        resultDiv.innerHTML = `<div class="alert alert-danger">Ошибка: ${error.message}</div>`;
+    } finally {
+        button.disabled = false;
+        button.innerHTML = '<i class="fas fa-refresh me-2"></i>Обновить цены';
+    }
+}
+
+// Загрузка статистики
+async function loadStats() {
+    try {
+        const response = await fetch('/admin/stats');
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            document.getElementById('totalStocks').textContent = data.stats.stocks;
+            document.getElementById('totalUsers').textContent = data.stats.users;
+            document.getElementById('totalAccounts').textContent = data.stats.accounts;
+            document.getElementById('totalTransactions').textContent = data.stats.transactions;
+        }
+    } catch (error) {
+        console.error('Ошибка загрузки статистики:', error);
+    }
+}
+
+// Загрузка списка акций
+async function loadStocksList() {
+    try {
+        const response = await fetch('/admin/stocks-list');
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            const tbody = document.getElementById('stocksList');
+            tbody.innerHTML = '';
+            
+            data.stocks.forEach(stock => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td><strong>${stock.ticker}</strong></td>
+                    <td>${stock.name}</td>
+                    <td><span class="badge bg-secondary">${stock.sector || 'Н/Д'}</span></td>
+                    <td><strong>${stock.price.toFixed(2)} ₽</strong></td>
+                    <td><small class="text-muted">${new Date(stock.updated_at).toLocaleString('ru-RU')}</small></td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+    } catch (error) {
+        console.error('Ошибка загрузки списка акций:', error);
+    }
+}
+
+// Загрузка данных при открытии страницы
+document.addEventListener('DOMContentLoaded', function() {
+    loadStats();
+    loadStocksList();
+});
+</script>
+{% endblock %}

@@ -24,23 +24,22 @@
                     <table class="table table-hover">
                         <thead>
                             <tr>
-                                <th>Логотип</th>
+                                <th style="width: 60px;">Лого</th>
                                 <th>Тикер</th>
                                 <th>Название</th>
                                 <th>Сектор</th>
                                 <th>Цена</th>
-                                <th>Действия</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for stock in stocks.items %}
-                            <tr>
+                            <tr class="stock-row" onclick="window.location.href='{{ url_for('stock_detail', ticker=stock.ticker) }}'" style="cursor: pointer;">
                                 <td>
                                     {% if stock.logo_url %}
-                                        <img src="{{ stock.logo_url }}" alt="{{ stock.name }}" style="width: 40px; height: 40px; object-fit: contain;" class="rounded">
+                                        <img src="{{ stock.logo_url }}" alt="{{ stock.name }}" style="width: 32px; height: 32px; object-fit: contain;" class="rounded">
                                     {% else %}
-                                        <div class="bg-secondary rounded d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
-                                            <i class="fas fa-building text-white"></i>
+                                        <div class="bg-secondary rounded d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+                                            <i class="fas fa-building text-white" style="font-size: 12px;"></i>
                                         </div>
                                     {% endif %}
                                 </td>
@@ -59,11 +58,6 @@
                                     {% else %}
                                         <span class="text-muted">Н/Д</span>
                                     {% endif %}
-                                </td>
-                                <td>
-                                    <a href="{{ url_for('stock_detail', ticker=stock.ticker) }}" class="btn btn-sm btn-primary">
-                                        <i class="fas fa-eye me-1"></i>Подробнее
-                                    </a>
                                 </td>
                             </tr>
                             {% endfor %}

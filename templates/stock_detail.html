@@ -42,25 +42,18 @@
                 <div class="row mt-3">
                     <div class="col-md-6">
                         <h4 class="text-success" id="currentPrice">
-                            {% if stock.price > 0 %}
                                 {{ "%.2f"|format(stock.price) }} ₽
                             {% else %}
                                 <span class="text-muted">Цена не доступна</span>
                             {% endif %}
                         </h4>
-                        <p class="text-muted">
-                            Текущая цена 
-                            <span id="priceUpdateIndicator" class="badge bg-secondary">
-                                <i class="fas fa-sync-alt"></i> Обновление...
-                            </span>
-                        </p>
-                    </div>
-                    <div class="col-md-6 text-end">
-                        <button class="btn btn-outline-primary btn-sm" onclick="updatePrice()">
-                            <i class="fas fa-sync-alt"></i> Обновить цену
-                        </button>
-                    </div>
-                </div>
+                        <div class="row align-items-center">
+                            <div class="col-md-12 text-center">
+                                <span id="priceUpdateIndicator" class="badge bg-success">
+                                    <i class="fas fa-wifi"></i> Цена обновляется автоматически
+                                </span>
+                            </div>
+                        </div>
                 
                 <!-- График цены -->
                 <div class="mt-4">
@@ -79,7 +72,7 @@
                         </div>
                     </div>
                     <div class="position-relative">
-                        <canvas id="priceChart" style="max-height: 400px;"></canvas>
+                        <canvas id="priceChart" style="max-height: 400px; width: 100%; height: 300px;"></canvas>
                         <div id="chartLoading" class="position-absolute top-50 start-50 translate-middle d-none">
                             <div class="spinner-border text-primary" role="status">
                                 <span class="visually-hidden">Загрузка...</span>
@@ -174,7 +167,7 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
-                <button type="button" class="btn btn-success" onclick="submitBuy()">Купить</button>
+                <button type="button" class="btn btn-primary" onclick="submitBuy()">Купить акции</button>
             </div>
         </div>
     </div>

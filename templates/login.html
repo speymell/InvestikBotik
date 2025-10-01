@@ -59,18 +59,8 @@
             }
         }
         
-        // Проверяем специальные заголовки Telegram
-        const isTelegramWebApp = window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData;
-        
-        // Проверяем User Agent на наличие Telegram только если нет Web App
-        const userAgent = navigator.userAgent.toLowerCase();
-        const isTelegramBrowser = userAgent.includes('telegram') || userAgent.includes('tgwebapp');
-        
-        // Показываем сообщение только если это Telegram браузер БЕЗ Web App данных
-        if (isTelegramBrowser && !isTelegramWebApp && !telegramId) {
-            document.getElementById('loginInfo').innerHTML = 
-                '<i class="fas fa-info-circle text-info me-2"></i>Вы используете Telegram браузер. Для полного доступа откройте приложение через бота.';
-        }
+        // НЕ показываем никаких сообщений о Telegram браузере
+        // Пользователь уже зашел через Telegram, если есть параметры или Web App
     }
 
     // Запускаем проверку при загрузке страницы
@@ -80,6 +70,8 @@
         </div>
     </div>
 </div>
+
+<style>
 .divider {
     display: flex;
     align-items: center;

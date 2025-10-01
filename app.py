@@ -17,13 +17,20 @@ def create_app(config_name=None):
     
     # Инициализируем маршруты
     init_routes(app)
-    
     return app
 
 app = create_app()
 
 if __name__ == '__main__':
+    # Запускаем планировщик в продакшене
+    if not app.debug:
+        try:
+            from scheduler import scheduler
+            scheduler.start()
+            print("✅ Планировщик автоматического обновления запущен")
+        except Exception as e:
+            print(f"⚠️ Ошибка запуска планировщика: {e}")
+    
     with app.app_context():
         db.create_all()
     app.run(debug=True)
-
