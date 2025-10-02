@@ -321,6 +321,10 @@ header .fs-4 {
     animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
+.paddingtop {
+    margin-block: 10px;
+}
+
 /* Улучшенный footer */
 footer {
     /* background: white; */
@@ -1211,6 +1215,268 @@ footer {
     color: #718096;
 }
 
+/* Полноэкранная криптосекция */
+.crypto-full-page {
+    position: relative;
+    min-height: 100vh;
+    margin: -2rem -15px 0 -15px;
+    padding: 2rem 15px;
+    background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+}
+
+.space-background-full {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    overflow: hidden;
+    z-index: 0;
+}
+
+.crypto-page-content {
+    position: relative;
+    z-index: 1;
+    color: white;
+}
+
+/* Криптопоиск */
+.crypto-search-container {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.crypto-search {
+    background: rgba(255, 255, 255, 0.1) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    color: white !important;
+    backdrop-filter: blur(10px);
+}
+
+.crypto-search::placeholder {
+    color: rgba(255, 255, 255, 0.7) !important;
+}
+
+.crypto-search:focus {
+    background: rgba(255, 255, 255, 0.15) !important;
+    border-color: #667eea !important;
+    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25) !important;
+}
+
+.btn-crypto-search {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+}
+
+.btn-crypto-search:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+/* Криптокарточка */
+.crypto-card {
+    background: rgba(255, 255, 255, 0.05) !important;
+    backdrop-filter: blur(15px);
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    color: white !important;
+}
+
+.crypto-table {
+    color: white !important;
+}
+
+.crypto-table thead th {
+    color: rgba(255, 255, 255, 0.8) !important;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.1) !important;
+    background: transparent !important;
+}
+
+.crypto-table tbody tr {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+}
+
+.crypto-table tbody tr:hover {
+    background: rgba(255, 255, 255, 0.05) !important;
+}
+
+/* Криптологотипы */
+.crypto-logo {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+    border-radius: 50%;
+    background: white;
+    padding: 2px;
+}
+
+.crypto-logo-mobile {
+    width: 40px;
+    height: 40px;
+    object-fit: contain;
+    border-radius: 50%;
+    background: white;
+    padding: 3px;
+}
+
+/* Криптосимволы и названия */
+.crypto-symbol {
+    color: #667eea !important;
+    font-family: 'Courier New', monospace;
+    font-size: 1rem;
+}
+
+.crypto-name {
+    color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.crypto-price {
+    color: #43e97b !important;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* Криптобейджи */
+.crypto-badge {
+    font-size: 0.7rem;
+    padding: 0.3rem 0.6rem;
+    border-radius: 12px;
+    font-weight: 500;
+}
+
+.crypto-badge-currency {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    color: white;
+}
+
+.crypto-badge-platform {
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    color: white;
+}
+
+.crypto-badge-exchange {
+    background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+    color: white;
+}
+
+/* Изменения цены */
+.crypto-change {
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.crypto-change.positive {
+    color: #43e97b !important;
+}
+
+.crypto-change.negative {
+    color: #fa709a !important;
+}
+
+/* Мобильная версия криптовалют */
+.crypto-mobile-item {
+    padding: 1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border-radius: 8px;
+    margin-bottom: 0.5rem;
+}
+
+.crypto-mobile-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+    transform: translateX(4px);
+}
+
+.crypto-mobile-item:last-child {
+    border-bottom: none;
+}
+
+.crypto-mobile-logo {
+    margin-right: 1rem;
+    flex-shrink: 0;
+}
+
+.crypto-mobile-info {
+    min-width: 0;
+}
+
+.crypto-mobile-symbol {
+    font-weight: 700;
+    font-size: 1rem;
+    color: #667eea;
+    margin-bottom: 0.25rem;
+    font-family: 'Courier New', monospace;
+}
+
+.crypto-mobile-name {
+    font-size: 0.875rem;
+    color: rgba(255, 255, 255, 0.8);
+    margin-bottom: 0.25rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.crypto-mobile-price {
+    font-weight: 700;
+    font-size: 1.125rem;
+    color: #43e97b;
+    white-space: nowrap;
+}
+
+/* Hover эффекты для криптострок */
+.crypto-row:hover {
+    background: rgba(255, 255, 255, 0.05) !important;
+    transform: translateY(-1px);
+    transition: all 0.2s ease;
+}
+
+/* Компактная заглушка */
+.crypto-coming-soon-small {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    padding: 2rem;
+    text-align: center;
+    margin-top: 2rem;
+}
+
+.crypto-content-small {
+    color: white;
+}
+
+.rocket-icon-small {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+    animation: float 3s ease-in-out infinite;
+}
+
+.rocket-icon-small i {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 0 10px rgba(102, 126, 234, 0.5));
+}
+
+.crypto-title-small {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.crypto-description-small {
+    font-size: 1rem;
+    color: rgba(255, 255, 255, 0.8);
+    margin: 0;
+}
+
 /* Адаптивность */
 @media (max-width: 768px) {
     .market-switcher {
@@ -1246,6 +1512,21 @@ footer {
     
     .crypto-feature {
         padding: 1rem;
+    }
+    
+    .crypto-full-page {
+        margin: -1rem -15px 0 -15px;
+        padding: 1rem 15px;
+    }
+    
+    .crypto-search-container {
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+    
+    .btn-crypto-search {
+        align-self: flex-start;
+        width: auto;
     }
     
     /* Компактная пагинация на мобильных */

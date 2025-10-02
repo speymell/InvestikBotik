@@ -1060,62 +1060,115 @@ def init_routes(app):
     def get_stock_price(ticker):
         """API для получения актуальной цены акции"""
         try:
-            import requests
+            from stock_api import stock_api_service
             
-            # Получаем цену с MOEX
-            moex_url = f"https://iss.moex.com/iss/engines/stock/markets/shares/boards/TQBR/securities/{ticker}.json"
+            # Используем сервис для получения цены
+            current_price = stock_api_service._get_stock_price(ticker)
             
-            response = requests.get(moex_url, timeout=10)
-            response.raise_for_status()
-            data = response.json()
-            
-            # Извлекаем текущую цену
-            marketdata = data.get('marketdata', {})
-            columns = marketdata.get('columns', [])
-            rows = marketdata.get('data', [])
-            
-            if columns and rows and len(rows) > 0:
-                last_idx = columns.index('LAST') if 'LAST' in columns else -1
+            if current_price and current_price > 0:
+                # Обновляем цену в базе данных
+                stock = Stock.query.filter_by(ticker=ticker).first()
+                if stock:
+                    stock.price = current_price
+                    db.session.commit()
                 
-                if last_idx >= 0 and len(rows[0]) > last_idx and rows[0][last_idx]:
-                    current_price = float(rows[0][last_idx])
-                    
-                    # Обновляем цену в базе данных
-                    stock = Stock.query.filter_by(ticker=ticker).first()
-                    if stock:
-                        stock.price = current_price
-                        db.session.commit()
-                    
-                    return jsonify({
-                        'success': True,
-                        'ticker': ticker,
-                        'price': current_price
-                    })
-            
-            # Если не удалось получить текущую цену, возвращаем из БД
-            stock = Stock.query.filter_by(ticker=ticker).first()
-            if stock:
                 return jsonify({
                     'success': True,
                     'ticker': ticker,
-                    'price': stock.price,
-                    'cached': True
+                    'price': current_price,
+                    'source': 'moex_api'
                 })
             
-            return jsonify({'success': False, 'error': 'Stock not found'}), 404
-            
-        except Exception as e:
-            # В случае ошибки возвращаем цену из БД
+            # Если не удалось получить цену через API, возвращаем из БД
             stock = Stock.query.filter_by(ticker=ticker).first()
-            if stock:
+            if stock and stock.price:
                 return jsonify({
                     'success': True,
                     'ticker': ticker,
                     'price': stock.price,
                     'cached': True,
-                    'error': str(e)
+                    'source': 'database'
+                })
+            
+            return jsonify({'success': False, 'error': 'Stock not found or no price available'}), 404
+            
+        except Exception as e:
+            logger.error(f"Ошибка получения цены для {ticker}: {e}")
+            # В случае ошибки возвращаем цену из БД
+            stock = Stock.query.filter_by(ticker=ticker).first()
+            if stock and stock.price:
+                return jsonify({
+                    'success': True,
+                    'ticker': ticker,
+                    'price': stock.price,
+                    'cached': True,
+                    'error': str(e),
+                    'source': 'database_fallback'
                 })
             return jsonify({'success': False, 'error': str(e)}), 500
+    
+    @app.route('/api/update_all_prices')
+    def update_all_prices():
+        """API для обновления цен всех акций"""
+        try:
+            from stock_api import stock_api_service
+            
+            # Получаем все акции из БД
+            stocks = Stock.query.all()
+            updated_count = 0
+            failed_count = 0
+            results = []
+            
+            for stock in stocks:
+                try:
+                    # Получаем актуальную цену с MOEX
+                    new_price = stock_api_service._get_stock_price(stock.ticker)
+                    if new_price and new_price > 0:
+                        old_price = stock.price
+                        stock.price = new_price
+                        updated_count += 1
+                        results.append({
+                            'ticker': stock.ticker,
+                            'old_price': old_price,
+                            'new_price': new_price,
+                            'status': 'updated'
+                        })
+                        logger.info(f"Обновлена цена {stock.ticker}: {old_price} → {new_price}")
+                    else:
+                        failed_count += 1
+                        results.append({
+                            'ticker': stock.ticker,
+                            'status': 'failed',
+                            'error': 'No price received'
+                        })
+                        logger.warning(f"Не удалось получить цену для {stock.ticker}")
+                except Exception as e:
+                    failed_count += 1
+                    results.append({
+                        'ticker': stock.ticker,
+                        'status': 'error',
+                        'error': str(e)
+                    })
+                    logger.error(f"Ошибка обновления {stock.ticker}: {e}")
+            
+            db.session.commit()
+            
+            return jsonify({
+                'success': True,
+                'message': f'Обновлено: {updated_count} акций, ошибок: {failed_count}, всего: {len(stocks)}',
+                'updated_count': updated_count,
+                'failed_count': failed_count,
+                'total_count': len(stocks),
+                'results': results[:10]  # Показываем только первые 10 результатов
+            })
+                
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Ошибка массового обновления цен: {e}")
+            return jsonify({
+                'success': False,
+                'error': str(e)
+            }), 500
 
 # Вспомогательные функции (вне init_routes)
 def get_sector_by_ticker(ticker):

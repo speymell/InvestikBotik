@@ -399,7 +399,23 @@ class StockAPIService:
             response.raise_for_status()
             
             data = response.json()
+            logger.info(f"Получен ответ MOEX API для {ticker}, секции: {list(data.keys())}")
             
+            # 1. Пытаемся получить цену из marketdata (текущие торговые данные)
+            if ('marketdata' in data and 'data' in data['marketdata'] and 
+                len(data['marketdata']['data']) > 0):
+                
+                columns = data['marketdata']['columns']
+                row = data['marketdata']['data'][0]
+                market = dict(zip(columns, row))
+                
+                # Приоритет: LAST (последняя цена) > CLOSE (цена закрытия) > OPEN (цена открытия)
+                price = market.get('LAST') or market.get('CLOSE') or market.get('OPEN')
+                if price and price > 0:
+                    logger.info(f"Получена цена {ticker} из marketdata: {price}")
+                    return float(price)
+            
+            # 2. Пытаемся получить цену из securities (информация о ценных бумагах)
             if ('securities' in data and 'data' in data['securities'] and 
                 len(data['securities']['data']) > 0):
                 
@@ -409,10 +425,12 @@ class StockAPIService:
                 
                 # Пытаемся получить цену из разных полей
                 price = security.get('PREVPRICE') or security.get('LAST') or security.get('MARKETPRICE')
-                if price:
+                if price and price > 0:
+                    logger.info(f"Получена цена {ticker} из securities: {price}")
                     return float(price)
             
-            # Если не получилось получить из основного запроса, пробуем историю
+            # 3. Если не получилось получить из основного запроса, пробуем историю
+            logger.info(f"Пытаемся получить цену {ticker} из истории торгов")
             history_url = f"{self.moex_base_url}/history/engines/stock/markets/shares/boards/TQBR/securities/{ticker}.json"
             params = {'iss.meta': 'off', 'iss.only': 'history', 'history.columns': 'TRADEDATE,CLOSE', 'limit': 1}
             
@@ -423,12 +441,14 @@ class StockAPIService:
             if 'history' in data and 'data' in data['history'] and len(data['history']['data']) > 0:
                 row = data['history']['data'][0]
                 if row and len(row) >= 2 and row[1]:
+                    logger.info(f"Получена цена {ticker} из истории: {row[1]}")
                     return float(row[1])
             
+            logger.warning(f"Не удалось получить цену для {ticker} ни из одного источника")
             return None
             
         except Exception as e:
-            logger.warning(f"Ошибка получения цены для {ticker}: {e}")
+            logger.error(f"Ошибка получения цены для {ticker}: {e}")
             return None
     
     def sync_stocks_to_database(self):
