@@ -403,46 +403,55 @@ class StockAPIService:
                     all_prices.update(batch_prices)
                 return all_prices
             
-            # Пробуем основную площадку TQBR
-            tickers_str = ','.join(tickers)
-            url = f"{self.moex_base_url}/engines/stock/markets/shares/boards/TQBR/securities.json?securities={tickers_str}"
-            
-            response = self.session.get(url, timeout=timeout)
-            response.raise_for_status()
-            
-            data = response.json()
-            logger.info(f"Получен массовый ответ MOEX API для {len(tickers)} акций")
-            
+            # Пробуем разные торговые площадки
+            boards = ['TQBR', 'TQPI', 'TQTF']  # Основные площадки для акций
             prices = {}
             
-            # Обрабатываем marketdata (текущие торговые данные)
-            if ('marketdata' in data and 'data' in data['marketdata'] and 
-                len(data['marketdata']['data']) > 0):
-                
-                columns = data['marketdata']['columns']
-                secid_idx = columns.index('SECID') if 'SECID' in columns else None
-                
-                # Ищем индексы нужных полей
-                last_idx = columns.index('LAST') if 'LAST' in columns else None
-                close_idx = columns.index('CLOSE') if 'CLOSE' in columns else None
-                open_idx = columns.index('OPEN') if 'OPEN' in columns else None
-                
-                for row in data['marketdata']['data']:
-                    if secid_idx is not None and row[secid_idx] in tickers:
-                        ticker = row[secid_idx]
-                        price = None
+            for board in boards:
+                if len(prices) == len(tickers):  # Если все цены уже получены
+                    break
+                    
+                try:
+                    tickers_str = ','.join(tickers)
+                    url = f"{self.moex_base_url}/engines/stock/markets/shares/boards/{board}/securities.json?securities={tickers_str}"
+                    
+                    response = self.session.get(url, timeout=timeout)
+                    response.raise_for_status()
+                    
+                    data = response.json()
+                    logger.info(f"Получен ответ MOEX API для площадки {board}, акций: {len(tickers)}")
+                    
+                    # Обрабатываем marketdata (текущие торговые данные)
+                    if ('marketdata' in data and 'data' in data['marketdata'] and 
+                        len(data['marketdata']['data']) > 0):
                         
-                        # Приоритет: LAST > CLOSE > OPEN
-                        if last_idx is not None and row[last_idx] is not None:
-                            price = float(row[last_idx])
-                        elif close_idx is not None and row[close_idx] is not None:
-                            price = float(row[close_idx])
-                        elif open_idx is not None and row[open_idx] is not None:
-                            price = float(row[open_idx])
+                        columns = data['marketdata']['columns']
+                        secid_idx = columns.index('SECID') if 'SECID' in columns else None
                         
-                        if price and price > 0:
-                            prices[ticker] = price
-                            logger.info(f"Получена цена {ticker}: {price}")
+                        # Ищем индексы нужных полей
+                        last_idx = columns.index('LAST') if 'LAST' in columns else None
+                        close_idx = columns.index('CLOSE') if 'CLOSE' in columns else None
+                        open_idx = columns.index('OPEN') if 'OPEN' in columns else None
+                        
+                        for row in data['marketdata']['data']:
+                            if secid_idx is not None and row[secid_idx] in tickers and row[secid_idx] not in prices:
+                                ticker = row[secid_idx]
+                                price = None
+                                
+                                # Приоритет: LAST > CLOSE > OPEN
+                                if last_idx is not None and row[last_idx] is not None:
+                                    price = float(row[last_idx])
+                                elif close_idx is not None and row[close_idx] is not None:
+                                    price = float(row[close_idx])
+                                elif open_idx is not None and row[open_idx] is not None:
+                                    price = float(row[open_idx])
+                                
+                                if price and price > 0:
+                                    prices[ticker] = price
+                                    logger.info(f"Получена цена {ticker} с площадки {board}: {price}")
+                except Exception as e:
+                    logger.warning(f"Ошибка получения данных с площадки {board}: {e}")
+                    continue
             
             # Для акций, которые не найдены, пробуем индивидуальные запросы
             missing_tickers = [t for t in tickers if t not in prices]
@@ -465,13 +474,39 @@ class StockAPIService:
     def _get_stock_price(self, ticker, timeout=10):
         """Получает текущую цену акции"""
         try:
-            url = f"{self.moex_base_url}/engines/stock/markets/shares/boards/TQBR/securities/{ticker}.json"
+            # Пробуем разные торговые площадки
+            boards = ['TQBR', 'TQPI', 'TQTF']
             
-            response = self.session.get(url, timeout=timeout)
-            response.raise_for_status()
+            for board in boards:
+                try:
+                    url = f"{self.moex_base_url}/engines/stock/markets/shares/boards/{board}/securities/{ticker}.json"
+                    
+                    response = self.session.get(url, timeout=timeout)
+                    response.raise_for_status()
+                    
+                    data = response.json()
+                    logger.info(f"Получен ответ MOEX API для {ticker} с площадки {board}, секции: {list(data.keys())}")
+                    
+                    # Пробуем получить цену с этой площадки
+                    price = self._extract_price_from_data(data, ticker, board)
+                    if price and price > 0:
+                        return price
+                        
+                except Exception as e:
+                    logger.warning(f"Ошибка получения {ticker} с площадки {board}: {e}")
+                    continue
             
-            data = response.json()
-            logger.info(f"Получен ответ MOEX API для {ticker}, секции: {list(data.keys())}")
+            # Если не получилось ни с одной площадки
+            logger.error(f"Не удалось получить цену {ticker} ни с одной площадки")
+            return None
+            
+        except Exception as e:
+            logger.error(f"Общая ошибка получения цены {ticker}: {e}")
+            return None
+    
+    def _extract_price_from_data(self, data, ticker, board):
+        """Извлекает цену из данных MOEX API"""
+        try:
             
             # 1. Пытаемся получить цену из marketdata (текущие торговые данные)
             if ('marketdata' in data and 'data' in data['marketdata'] and 
@@ -484,7 +519,7 @@ class StockAPIService:
                 # Приоритет: LAST (последняя цена) > CLOSE (цена закрытия) > OPEN (цена открытия)
                 price = market.get('LAST') or market.get('CLOSE') or market.get('OPEN')
                 if price and price > 0:
-                    logger.info(f"Получена цена {ticker} из marketdata: {price}")
+                    logger.info(f"Получена цена {ticker} из marketdata с площадки {board}: {price}")
                     return float(price)
             
             # 2. Пытаемся получить цену из securities (информация о ценных бумагах)
@@ -498,25 +533,25 @@ class StockAPIService:
                 # Пытаемся получить цену из разных полей
                 price = security.get('PREVPRICE') or security.get('LAST') or security.get('MARKETPRICE')
                 if price and price > 0:
-                    logger.info(f"Получена цена {ticker} из securities: {price}")
+                    logger.info(f"Получена цена {ticker} из securities с площадки {board}: {price}")
                     return float(price)
             
-            # 3. Если не получилось получить из основного запроса, пробуем историю
-            logger.info(f"Пытаемся получить цену {ticker} из истории торгов")
-            history_url = f"{self.moex_base_url}/history/engines/stock/markets/shares/boards/TQBR/securities/{ticker}.json"
+            # 3. Если не получилось получить из основного запроса, пробуем историю для этой площадки
+            logger.info(f"Пытаемся получить цену {ticker} из истории торгов площадки {board}")
+            history_url = f"{self.moex_base_url}/history/engines/stock/markets/shares/boards/{board}/securities/{ticker}.json"
             params = {'iss.meta': 'off', 'iss.only': 'history', 'history.columns': 'TRADEDATE,CLOSE', 'limit': 1}
             
-            response = self.session.get(history_url, params=params, timeout=10)
+            response = self.session.get(history_url, params=params, timeout=5)
             response.raise_for_status()
             
-            data = response.json()
-            if 'history' in data and 'data' in data['history'] and len(data['history']['data']) > 0:
-                row = data['history']['data'][0]
+            hist_data = response.json()
+            if 'history' in hist_data and 'data' in hist_data['history'] and len(hist_data['history']['data']) > 0:
+                row = hist_data['history']['data'][0]
                 if row and len(row) >= 2 and row[1]:
-                    logger.info(f"Получена цена {ticker} из истории: {row[1]}")
+                    logger.info(f"Получена цена {ticker} из истории площадки {board}: {row[1]}")
                     return float(row[1])
             
-            logger.warning(f"Не удалось получить цену для {ticker} ни из одного источника")
+            logger.warning(f"Не удалось получить цену для {ticker} с площадки {board}")
             return None
             
         except Exception as e:
