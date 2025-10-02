@@ -283,7 +283,7 @@ class StockAPIService:
             {'ticker': 'SBER', 'name': 'ПАО Сбербанк', 'price': 280.50, 'sector': 'Банки', 'description': 'Крупнейший банк России'},
             {'ticker': 'GAZP', 'name': 'ПАО Газпром', 'price': 128.75, 'sector': 'Нефть и газ', 'description': 'Крупнейшая газовая компания'},
             {'ticker': 'LKOH', 'name': 'ЛУКОЙЛ', 'price': 6850.00, 'sector': 'Нефть и газ', 'description': 'Нефтяная компания'},
-            {'ticker': 'YNDX', 'name': 'Яндекс', 'price': 3420.00, 'sector': 'IT', 'description': 'IT-компания'},
+            {'ticker': 'YNDX', 'name': 'Яндекс', 'price': 3835.50, 'sector': 'IT', 'description': 'IT-компания'},
             {'ticker': 'ROSN', 'name': 'Роснефть', 'price': 565.20, 'sector': 'Нефть и газ', 'description': 'Нефтяная компания'},
             {'ticker': 'NVTK', 'name': 'НОВАТЭК', 'price': 1125.40, 'sector': 'Нефть и газ', 'description': 'Газовая компания'},
             {'ticker': 'TCSG', 'name': 'TCS Group', 'price': 2890.60, 'sector': 'Банки', 'description': 'Банк Тинькофф'},
@@ -291,6 +291,17 @@ class StockAPIService:
             {'ticker': 'GMKN', 'name': 'ГМК Норникель', 'price': 15680.00, 'sector': 'Металлургия', 'description': 'Горно-металлургическая компания'},
             {'ticker': 'MTSS', 'name': 'МТС', 'price': 285.40, 'sector': 'Телеком', 'description': 'Мобильные телесистемы'}
         ]
+        
+        # Пытаемся получить реальные цены для fallback акций
+        logger.info("Попытка обновить fallback цены с MOEX...")
+        for stock_data in fallback_stocks:
+            try:
+                real_price = self._get_stock_price(stock_data['ticker'])
+                if real_price and real_price > 0:
+                    stock_data['price'] = real_price
+                    logger.info(f"Обновлена цена {stock_data['ticker']}: {real_price}")
+            except Exception as e:
+                logger.warning(f"Не удалось обновить цену для {stock_data['ticker']}: {e}")
         
         # Добавляем логотипы к fallback акциям
         for stock in fallback_stocks:
@@ -396,7 +407,23 @@ class StockAPIService:
                 row = data['securities']['data'][0]
                 security = dict(zip(columns, row))
                 
-                return float(security.get('PREVPRICE', 0)) or float(security.get('LAST', 0))
+                # Пытаемся получить цену из разных полей
+                price = security.get('PREVPRICE') or security.get('LAST') or security.get('MARKETPRICE')
+                if price:
+                    return float(price)
+            
+            # Если не получилось получить из основного запроса, пробуем историю
+            history_url = f"{self.moex_base_url}/history/engines/stock/markets/shares/boards/TQBR/securities/{ticker}.json"
+            params = {'iss.meta': 'off', 'iss.only': 'history', 'history.columns': 'TRADEDATE,CLOSE', 'limit': 1}
+            
+            response = self.session.get(history_url, params=params, timeout=10)
+            response.raise_for_status()
+            
+            data = response.json()
+            if 'history' in data and 'data' in data['history'] and len(data['history']['data']) > 0:
+                row = data['history']['data'][0]
+                if row and len(row) >= 2 and row[1]:
+                    return float(row[1])
             
             return None
             

@@ -127,46 +127,46 @@
     </div>
 </div>
 
-<!-- Пагинация -->
-{% if stocks.pages > 1 %}
-<div class="row mt-3">
-    <div class="col-md-12">
-        <nav>
-            <ul class="pagination justify-content-center">
-                {% if stocks.has_prev %}
-                <li class="page-item">
-                    <a class="page-link" href="{{ url_for('stocks', page=stocks.prev_num, search=search) }}">Предыдущая</a>
-                </li>
-                {% endif %}
-                
-                {% for page_num in stocks.iter_pages() %}
-                    {% if page_num %}
-                        {% if page_num != stocks.page %}
-                        <li class="page-item">
-                            <a class="page-link" href="{{ url_for('stocks', page=page_num, search=search) }}">{{ page_num }}</a>
-                        </li>
-                        {% else %}
-                        <li class="page-item active">
-                            <span class="page-link">{{ page_num }}</span>
-                        </li>
-                        {% endif %}
-                    {% else %}
-                    <li class="page-item disabled">
-                        <span class="page-link">…</span>
+    <!-- Пагинация -->
+    {% if stocks.pages > 1 %}
+    <div class="row mt-3">
+        <div class="col-md-12">
+            <nav>
+                <ul class="pagination justify-content-center">
+                    {% if stocks.has_prev %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('stocks', page=stocks.prev_num, search=search) }}">Предыдущая</a>
                     </li>
                     {% endif %}
-                {% endfor %}
-                
-                {% if stocks.has_next %}
-                <li class="page-item">
-                    <a class="page-link" href="{{ url_for('stocks', page=stocks.next_num, search=search) }}">Следующая</a>
-                </li>
-                {% endif %}
-            </ul>
-        </nav>
+                    
+                    {% for page_num in stocks.iter_pages() %}
+                        {% if page_num %}
+                            {% if page_num != stocks.page %}
+                            <li class="page-item">
+                                <a class="page-link" href="{{ url_for('stocks', page=page_num, search=search) }}">{{ page_num }}</a>
+                            </li>
+                            {% else %}
+                            <li class="page-item active">
+                                <span class="page-link">{{ page_num }}</span>
+                            </li>
+                            {% endif %}
+                        {% else %}
+                        <li class="page-item disabled">
+                            <span class="page-link">…</span>
+                        </li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if stocks.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('stocks', page=stocks.next_num, search=search) }}">Следующая</a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
     </div>
-</div>
-{% endif %}
+    {% endif %}
 </div>
 <!-- Конец секции акций -->
 

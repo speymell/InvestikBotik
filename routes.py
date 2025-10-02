@@ -2,6 +2,9 @@ from flask import render_template, request, jsonify, redirect, url_for, session
 from database import db, User, Account, Stock, Transaction
 from utils import calculate_portfolio_stats, get_top_stocks
 import datetime
+import logging
+
+logger = logging.getLogger(__name__)
 
 def init_routes(app):
     
@@ -42,22 +45,41 @@ def init_routes(app):
         """Обновление цен акций"""
         try:
             from stock_api import stock_api_service
+            import logging
             
-            success = stock_api_service.update_stock_prices()
+            logger = logging.getLogger(__name__)
+            logger.info("Начинаем обновление цен акций...")
             
-            if success:
-                total_count = Stock.query.count()
-                return jsonify({
-                    'status': 'success',
-                    'message': f'Цены обновлены для {total_count} акций'
-                })
-            else:
-                return jsonify({
-                    'status': 'error',
-                    'message': 'Ошибка обновления цен'
-                }), 500
+            # Получаем все акции из БД
+            stocks = Stock.query.all()
+            updated_count = 0
+            failed_count = 0
+            
+            for stock in stocks:
+                try:
+                    # Получаем актуальную цену с MOEX
+                    price = stock_api_service._get_stock_price(stock.ticker)
+                    if price and price > 0:
+                        old_price = stock.price
+                        stock.price = price
+                        updated_count += 1
+                        logger.info(f"Обновлена цена {stock.ticker}: {old_price} → {price}")
+                    else:
+                        failed_count += 1
+                        logger.warning(f"Не удалось получить цену для {stock.ticker}")
+                except Exception as e:
+                    failed_count += 1
+                    logger.error(f"Ошибка обновления {stock.ticker}: {e}")
+            
+            db.session.commit()
+            
+            return jsonify({
+                'status': 'success',
+                'message': f'Обновлено: {updated_count} акций, ошибок: {failed_count}, всего: {len(stocks)}'
+            })
                 
         except Exception as e:
+            db.session.rollback()
             return jsonify({
                 'status': 'error',
                 'message': f'Ошибка обновления цен: {str(e)}'
@@ -672,6 +694,28 @@ def init_routes(app):
         
         db.session.add(transaction)
         db.session.commit()
+        
+        return jsonify({'success': True, 'new_balance': account.balance})
+    
+    @app.route('/api/withdraw', methods=['POST'])
+    def withdraw():
+        """API для вывода средств со счета"""
+        if 'user_id' not in session:
+            return jsonify({'error': 'Не авторизован'}), 401
+        
+        try:
+            data = request.get_json()
+            if not data:
+                return jsonify({'error': 'Некорректные данные запроса'}), 400
+            
+            account_id = int(data.get('account_id'))
+            amount = float(data.get('amount', 0))
+        except Exception as e:
+            return jsonify({'error': f'Ошибка обработки данных: {str(e)}'}), 400
+        
+        if amount <= 0:
+            return jsonify({'error': 'Сумма должна быть положительной'}), 400
+        
         account = Account.query.filter_by(
             id=account_id, 
             user_id=session['user_id']
