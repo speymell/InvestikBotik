@@ -390,12 +390,62 @@ class StockAPIService:
             db.session.rollback()
             return False
     
-    def _get_stock_price(self, ticker):
+    def get_multiple_stock_prices(self, tickers, timeout=10):
+        """Получает цены нескольких акций одним запросом"""
+        try:
+            # Формируем URL для получения данных по всем тикерам сразу
+            tickers_str = ','.join(tickers)
+            url = f"{self.moex_base_url}/engines/stock/markets/shares/boards/TQBR/securities.json?securities={tickers_str}"
+            
+            response = self.session.get(url, timeout=timeout)
+            response.raise_for_status()
+            
+            data = response.json()
+            logger.info(f"Получен массовый ответ MOEX API для {len(tickers)} акций")
+            
+            prices = {}
+            
+            # Обрабатываем marketdata (текущие торговые данные)
+            if ('marketdata' in data and 'data' in data['marketdata'] and 
+                len(data['marketdata']['data']) > 0):
+                
+                columns = data['marketdata']['columns']
+                secid_idx = columns.index('SECID') if 'SECID' in columns else None
+                
+                # Ищем индексы нужных полей
+                last_idx = columns.index('LAST') if 'LAST' in columns else None
+                close_idx = columns.index('CLOSE') if 'CLOSE' in columns else None
+                open_idx = columns.index('OPEN') if 'OPEN' in columns else None
+                
+                for row in data['marketdata']['data']:
+                    if secid_idx is not None and row[secid_idx] in tickers:
+                        ticker = row[secid_idx]
+                        price = None
+                        
+                        # Приоритет: LAST > CLOSE > OPEN
+                        if last_idx is not None and row[last_idx] is not None:
+                            price = float(row[last_idx])
+                        elif close_idx is not None and row[close_idx] is not None:
+                            price = float(row[close_idx])
+                        elif open_idx is not None and row[open_idx] is not None:
+                            price = float(row[open_idx])
+                        
+                        if price and price > 0:
+                            prices[ticker] = price
+                            logger.info(f"Получена цена {ticker}: {price}")
+            
+            return prices
+            
+        except Exception as e:
+            logger.error(f"Ошибка получения массовых цен: {e}")
+            return {}
+
+    def _get_stock_price(self, ticker, timeout=10):
         """Получает текущую цену акции"""
         try:
             url = f"{self.moex_base_url}/engines/stock/markets/shares/boards/TQBR/securities/{ticker}.json"
             
-            response = self.session.get(url, timeout=10)
+            response = self.session.get(url, timeout=timeout)
             response.raise_for_status()
             
             data = response.json()

@@ -253,8 +253,8 @@ function startPriceUpdates() {
     // Обновляем цены сразу при загрузке
     updateAllPrices();
     
-    // Затем обновляем каждые 30 секунд
-    priceUpdateInterval = setInterval(updateAllPrices, 30000);
+    // Затем обновляем каждые 2 минуты (120 секунд)
+    priceUpdateInterval = setInterval(updateAllPrices, 120000);
 }
 
 async function updateAllPrices() {

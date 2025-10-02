@@ -1109,21 +1109,29 @@ def init_routes(app):
     
     @app.route('/api/update_all_prices')
     def update_all_prices():
-        """API для обновления цен всех акций"""
+        """API для быстрого обновления цен популярных акций"""
         try:
             from stock_api import stock_api_service
+            import time
             
-            # Получаем все акции из БД
-            stocks = Stock.query.all()
+            # Получаем только популярные акции для быстрого обновления
+            popular_tickers = ['SBER', 'GAZP', 'LKOH', 'YNDX', 'VTBR', 'TCSG', 'PLZL', 'NVTK', 'ROSN', 'GMKN']
+            stocks = Stock.query.filter(Stock.ticker.in_(popular_tickers)).all()
+            
             updated_count = 0
             failed_count = 0
             results = []
+            start_time = time.time()
             
+            # Получаем все цены одним запросом
+            tickers_list = [stock.ticker for stock in stocks]
+            prices = stock_api_service.get_multiple_stock_prices(tickers_list, timeout=10)
+            
+            # Обновляем цены в базе данных
             for stock in stocks:
                 try:
-                    # Получаем актуальную цену с MOEX
-                    new_price = stock_api_service._get_stock_price(stock.ticker)
-                    if new_price and new_price > 0:
+                    if stock.ticker in prices:
+                        new_price = prices[stock.ticker]
                         old_price = stock.price
                         stock.price = new_price
                         updated_count += 1
@@ -1159,7 +1167,8 @@ def init_routes(app):
                 'updated_count': updated_count,
                 'failed_count': failed_count,
                 'total_count': len(stocks),
-                'results': results[:10]  # Показываем только первые 10 результатов
+                'results': results[:10],  # Показываем только первые 10 результатов
+                'execution_time': round(time.time() - start_time, 2)
             })
                 
         except Exception as e:
