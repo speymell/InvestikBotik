@@ -70,9 +70,12 @@ def calculate_account_stats(account_id):
         stock_id = transaction.stock_id
         
         if stock_id not in stock_positions:
+            # Получаем объект акции из базы данных
+            from database import Stock
+            stock = Stock.query.get(stock_id)
             stock_positions[stock_id] = {
                 'stock_id': stock_id,
-                'stock': transaction.stock,
+                'stock': stock,
                 'quantity': 0,
                 'total_cost': 0
             }

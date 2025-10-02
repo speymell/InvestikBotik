@@ -75,7 +75,7 @@
     <div class="col-lg-3 col-md-6">
         <div class="stats-card profit-stats {% if portfolio_stats.total_profit_loss < 0 %}negative{% endif %}">
             <div class="stats-icon">
-                <i class="fas fa-{% if portfolio_stats.total_profit_loss >= 0 %}trending-up{% else %}trending-down{% endif %}"></i>
+                <i class="fas fa-{% if portfolio_stats.total_profit_loss >= 0 %}plus-circle{% else %}minus-circle{% endif %}"></i>
             </div>
             <div class="stats-content">
                 <div class="stats-label">Прибыль/Убыток</div>
@@ -161,7 +161,7 @@
         </div>
     </div>
     
-    <div class="col-md-6">
+    <div class="col-md-6 mt-3 mt-md-0">
         <div class="card">
             <div class="card-header">
                 <h5>Последние транзакции</h5>

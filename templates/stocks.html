@@ -32,6 +32,12 @@
 
     <div class="col-md-12 mt-4">
         <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Список акций</h5>
+                <button class="btn btn-sm btn-outline-success" onclick="updateAllPrices()" id="manualUpdateBtn">
+                    <i class="fas fa-sync-alt me-1"></i>Обновить цены
+                </button>
+            </div>
             <div class="card-body">
                 <!-- Десктоп версия -->
                 <div class="table-responsive d-none d-md-block">
@@ -40,34 +46,33 @@
                             <tr>
                                 <th style="width: 60px;">Лого</th>
                                 <th style="width: 100px;">Тикер</th>
-                                <th>Название</th>
                                 <th style="width: 150px;">Сектор</th>
                                 <th style="width: 120px;" class="text-end">Цена</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {% for stock in stocks.items %}
-                            <tr class="stock-row" onclick="window.location.href='{{ url_for('stock_detail', ticker=stock.ticker) }}';" style="cursor: pointer;">
+                            {% for stock in stocks %}
+                            <tr data-ticker="{{ stock.ticker }}" onclick="window.location.href='{{ url_for('stock_detail', ticker=stock.ticker) }}'" style="cursor: pointer;">
                                 <td>
-                                    {% if stock.logo_url %}
-                                        <img src="{{ stock.logo_url }}" alt="{{ stock.name }}" style="width: 32px; height: 32px; object-fit: contain;" class="rounded">
-                                    {% else %}
-                                        <div class="bg-secondary rounded d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+                                    <div class="d-flex align-items-center">
+                                        <img src="{{ stock.logo_url or 'https://ui-avatars.com/api/?name=' + stock.ticker + '&background=007bff&color=fff&size=32' }}" 
+                                             alt="{{ stock.ticker }}" class="stock-logo me-2">
+                                        <div>
+                                            <strong>{{ stock.ticker }}</strong><br>
+                                            <small class="text-muted">{{ stock.name[:30] }}{% if stock.name|length > 30 %}...{% endif %}</small>
                                         </div>
-                                    {% endif %}
+                                    </div>
                                 </td>
-                                <td><strong>{{ stock.ticker }}</strong></td>
-                                <td>{{ stock.name }}</td>
                                 <td>
                                     {% if stock.sector %}
-                                        <span class="badge bg-secondary">{{ stock.sector }}</span>
+                                        <span class="badge bg-primary">{{ stock.sector }}</span>
                                     {% else %}
-                                        <span class="text-muted">-</span>
+                                        <span class="badge bg-secondary">Прочие</span>
                                     {% endif %}
                                 </td>
                                 <td class="text-end">
                                     {% if stock.price > 0 %}
-                                        <strong>{{ "%.2f"|format(stock.price) }} ₽</strong>
+                                        <strong class="stock-price">{{ "%.2f"|format(stock.price) }} ₽</strong>
                                     {% else %}
                                         <span class="text-muted">Н/Д</span>
                                     {% endif %}
@@ -80,29 +85,26 @@
                 
                 <!-- Мобильная версия -->
                 <div class="d-block d-md-none">
-                    {% for stock in stocks.items %}
-                    <div class="stock-mobile-item" onclick="window.location.href='{{ url_for('stock_detail', ticker=stock.ticker) }}';">
+                    {% for stock in stocks %}
+                    <div class="stock-mobile-item" data-ticker="{{ stock.ticker }}" onclick="window.location.href='{{ url_for('stock_detail', ticker=stock.ticker) }}';">
                         <div class="d-flex align-items-center">
                             <div class="stock-mobile-logo">
-                                {% if stock.logo_url %}
-                                    <img src="{{ stock.logo_url }}" alt="{{ stock.name }}" style="width: 40px; height: 40px; object-fit: contain; border-radius: 8px;">
-                                {% else %}
-                                    <div class="bg-secondary rounded d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
-                                        <i class="fas fa-building text-white"></i>
-                                    </div>
-                                {% endif %}
+                                <img src="{{ stock.logo_url or 'https://ui-avatars.com/api/?name=' + stock.ticker + '&background=007bff&color=fff&size=40' }}" 
+                                     alt="{{ stock.ticker }}" class="stock-logo-mobile">
                             </div>
                             <div class="stock-mobile-info flex-grow-1">
                                 <div class="d-flex justify-content-between align-items-start">
                                     <div>
                                         <div class="stock-mobile-ticker">{{ stock.ticker }}</div>
-                                        <div class="stock-mobile-name">{{ stock.name[:30] }}{% if stock.name|length > 30 %}...{% endif %}</div>
+                                        <div class="stock-mobile-name">{{ stock.name[:25] }}{% if stock.name|length > 25 %}...{% endif %}</div>
                                         {% if stock.sector %}
-                                            <span class="badge bg-secondary" style="font-size: 0.65rem;">{{ stock.sector }}</span>
+                                            <span class="badge bg-primary mobile-badge">{{ stock.sector }}</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary mobile-badge">Прочие</span>
                                         {% endif %}
                                     </div>
                                     <div class="text-end">
-                                        <div class="stock-mobile-price">
+                                        <div class="stock-mobile-price stock-price">
                                             {% if stock.price > 0 %}
                                                 {{ "%.2f"|format(stock.price) }} ₽
                                             {% else %}
@@ -238,6 +240,125 @@ document.addEventListener('DOMContentLoaded', function() {
     const savedMarket = localStorage.getItem('selectedMarket') || 'stocks';
     if (savedMarket === 'crypto') {
         switchMarket('crypto');
+    }
+    
+    // Запускаем автоматическое обновление цен
+    startPriceUpdates();
+});
+
+// Автоматическое обновление цен
+let priceUpdateInterval;
+
+function startPriceUpdates() {
+    // Обновляем цены сразу при загрузке
+    updateAllPrices();
+    
+    // Затем обновляем каждые 30 секунд
+    priceUpdateInterval = setInterval(updateAllPrices, 30000);
+}
+
+async function updateAllPrices() {
+    const manualBtn = document.getElementById('manualUpdateBtn');
+    const originalText = manualBtn?.innerHTML;
+    
+    try {
+        // Показываем индикацию загрузки
+        if (manualBtn) {
+            manualBtn.disabled = true;
+            manualBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Обновляем...';
+        }
+        
+        console.log('Обновляем цены акций...');
+        const response = await fetch('/api/update_all_prices');
+        const data = await response.json();
+        
+        if (data.success) {
+            console.log(`Обновлено ${data.updated_count} акций из ${data.total_count}`);
+            
+            // Обновляем отображение цен на странице
+            data.results.forEach(result => {
+                if (result.status === 'updated') {
+                    updateStockPriceDisplay(result.ticker, result.new_price);
+                }
+            });
+            
+            // Показываем индикатор успешного обновления
+            showUpdateIndicator('success', `Обновлено ${data.updated_count} из ${data.total_count} цен`);
+            
+            // Обновляем кнопку
+            if (manualBtn) {
+                manualBtn.innerHTML = '<i class="fas fa-check me-1"></i>Обновлено!';
+                setTimeout(() => {
+                    manualBtn.innerHTML = originalText;
+                    manualBtn.disabled = false;
+                }, 2000);
+            }
+        } else {
+            console.error('Ошибка обновления цен:', data.error);
+            showUpdateIndicator('error', 'Ошибка обновления');
+            
+            // Восстанавливаем кнопку
+            if (manualBtn) {
+                manualBtn.innerHTML = originalText;
+                manualBtn.disabled = false;
+            }
+        }
+    } catch (error) {
+        console.error('Ошибка при обновлении цен:', error);
+        showUpdateIndicator('error', 'Ошибка соединения');
+        
+        // Восстанавливаем кнопку
+        if (manualBtn) {
+            manualBtn.innerHTML = originalText;
+            manualBtn.disabled = false;
+        }
+    }
+}
+
+function updateStockPriceDisplay(ticker, newPrice) {
+    // Обновляем цену в таблице акций
+    const priceElements = document.querySelectorAll(`[data-ticker="${ticker}"] .stock-price`);
+    priceElements.forEach(element => {
+        const oldPrice = parseFloat(element.textContent.replace(/[^\d.,]/g, '').replace(',', '.'));
+        element.textContent = `${newPrice.toFixed(2)} ₽`;
+        
+        // Добавляем анимацию изменения цены
+        if (oldPrice !== newPrice) {
+            element.classList.add('price-updated');
+            setTimeout(() => element.classList.remove('price-updated'), 1000);
+        }
+    });
+}
+
+function showUpdateIndicator(type, message) {
+    // Создаем или обновляем индикатор обновления
+    let indicator = document.getElementById('priceUpdateIndicator');
+    if (!indicator) {
+        indicator = document.createElement('div');
+        indicator.id = 'priceUpdateIndicator';
+        indicator.className = 'price-update-indicator';
+        document.body.appendChild(indicator);
+    }
+    
+    indicator.className = `price-update-indicator ${type}`;
+    indicator.innerHTML = `
+        <i class="fas fa-${type === 'success' ? 'check' : 'exclamation-triangle'}"></i>
+        ${message}
+    `;
+    
+    // Показываем индикатор
+    indicator.style.display = 'block';
+    
+    // Скрываем через 3 секунды
+    setTimeout(() => {
+        indicator.style.display = 'none';
+    }, 3000);
+}
+
+// Останавливаем обновления при уходе со страницы
+window.addEventListener('beforeunload', function() {
+    if (priceUpdateInterval) {
+        clearInterval(priceUpdateInterval);
     }
 });
 </script>
