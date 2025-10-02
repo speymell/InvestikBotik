@@ -1114,9 +1114,8 @@ def init_routes(app):
             from stock_api import stock_api_service
             import time
             
-            # Получаем только популярные акции для быстрого обновления
-            popular_tickers = ['SBER', 'GAZP', 'LKOH', 'YNDX', 'VTBR', 'TCSG', 'PLZL', 'NVTK', 'ROSN', 'GMKN']
-            stocks = Stock.query.filter(Stock.ticker.in_(popular_tickers)).all()
+            # Получаем все акции из базы данных
+            stocks = Stock.query.all()
             
             updated_count = 0
             failed_count = 0

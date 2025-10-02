@@ -393,7 +393,17 @@ class StockAPIService:
     def get_multiple_stock_prices(self, tickers, timeout=10):
         """Получает цены нескольких акций одним запросом"""
         try:
-            # Формируем URL для получения данных по всем тикерам сразу
+            # Ограничиваем количество тикеров в одном запросе для стабильности
+            if len(tickers) > 20:
+                # Разбиваем на части по 20 акций
+                all_prices = {}
+                for i in range(0, len(tickers), 20):
+                    batch = tickers[i:i+20]
+                    batch_prices = self.get_multiple_stock_prices(batch, timeout)
+                    all_prices.update(batch_prices)
+                return all_prices
+            
+            # Пробуем основную площадку TQBR
             tickers_str = ','.join(tickers)
             url = f"{self.moex_base_url}/engines/stock/markets/shares/boards/TQBR/securities.json?securities={tickers_str}"
             
@@ -433,6 +443,18 @@ class StockAPIService:
                         if price and price > 0:
                             prices[ticker] = price
                             logger.info(f"Получена цена {ticker}: {price}")
+            
+            # Для акций, которые не найдены, пробуем индивидуальные запросы
+            missing_tickers = [t for t in tickers if t not in prices]
+            if missing_tickers:
+                logger.info(f"Пробуем индивидуальные запросы для {missing_tickers}")
+                for ticker in missing_tickers:
+                    try:
+                        price = self._get_stock_price(ticker, timeout=5)
+                        if price and price > 0:
+                            prices[ticker] = price
+                    except Exception as e:
+                        logger.warning(f"Не удалось получить цену для {ticker}: {e}")
             
             return prices
             
