@@ -171,255 +171,38 @@
 <!-- Конец секции акций -->
 
 <!-- Секция Crypto -->
-<div id="cryptoSection" class="crypto-full-page" style="display: none;">
-    <!-- Космический фон на всю страницу -->
-    <div class="space-background-full">
-        <div class="stars"></div>
-        <div class="stars2"></div>
-        <div class="stars3"></div>
-    </div>
-    
-    <!-- Кнопка выхода из полноэкранного режима -->
-    <button class="crypto-exit-btn" onclick="switchMarket('stocks')" title="Вернуться к акциям (ESC)">
-        <i class="fas fa-times"></i>
-    </button>
-    
-    <div class="crypto-page-content">
-        <div class="row mt-3">
-            <div class="col-md-6">
-                <div class="crypto-search-container">
-                    <input class="form-control crypto-search" type="search" placeholder="Поиск криптовалют..." value="">
-                    <button class="btn btn-crypto-search" type="submit">
-                        <i class="fas fa-search"></i>
-                    </button>
+<div id="cryptoSection" style="display: none;">
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="crypto-coming-soon">
+                <div class="space-background">
+                    <div class="stars"></div>
+                    <div class="stars2"></div>
+                    <div class="stars3"></div>
                 </div>
-            </div>
-        </div>
-
-        <div class="col-md-12 mt-4">
-            <div class="card crypto-card">
-                <div class="card-body">
-                    <!-- Десктоп версия -->
-                    <div class="table-responsive d-none d-md-block">
-                        <table class="table table-hover align-middle crypto-table">
-                            <thead>
-                                <tr>
-                                    <th style="width: 60px;">Лого</th>
-                                    <th style="width: 100px;">Символ</th>
-                                    <th>Название</th>
-                                    <th style="width: 150px;">Категория</th>
-                                    <th style="width: 120px;" class="text-end">Цена</th>
-                                    <th style="width: 100px;" class="text-end">24ч %</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr class="crypto-row" onclick="alert('Bitcoin детали скоро...');" style="cursor: pointer;">
-                                    <td>
-                                        <img src="https://cryptologos.cc/logos/bitcoin-btc-logo.png" alt="Bitcoin" class="crypto-logo">
-                                    </td>
-                                    <td><strong class="crypto-symbol">BTC</strong></td>
-                                    <td class="crypto-name">Bitcoin</td>
-                                    <td>
-                                        <span class="badge crypto-badge crypto-badge-currency">Валюта</span>
-                                    </td>
-                                    <td class="text-end">
-                                        <strong class="crypto-price">$67,234.56</strong>
-                                    </td>
-                                    <td class="text-end">
-                                        <span class="crypto-change positive">+2.34%</span>
-                                    </td>
-                                </tr>
-                                <tr class="crypto-row" onclick="alert('Ethereum детали скоро...');" style="cursor: pointer;">
-                                    <td>
-                                        <img src="https://cryptologos.cc/logos/ethereum-eth-logo.png" alt="Ethereum" class="crypto-logo">
-                                    </td>
-                                    <td><strong class="crypto-symbol">ETH</strong></td>
-                                    <td class="crypto-name">Ethereum</td>
-                                    <td>
-                                        <span class="badge crypto-badge crypto-badge-platform">Платформа</span>
-                                    </td>
-                                    <td class="text-end">
-                                        <strong class="crypto-price">$2,456.78</strong>
-                                    </td>
-                                    <td class="text-end">
-                                        <span class="crypto-change negative">-1.23%</span>
-                                    </td>
-                                </tr>
-                                <tr class="crypto-row" onclick="alert('Binance Coin детали скоро...');" style="cursor: pointer;">
-                                    <td>
-                                        <img src="https://cryptologos.cc/logos/bnb-bnb-logo.png" alt="BNB" class="crypto-logo">
-                                    </td>
-                                    <td><strong class="crypto-symbol">BNB</strong></td>
-                                    <td class="crypto-name">Binance Coin</td>
-                                    <td>
-                                        <span class="badge crypto-badge crypto-badge-exchange">Биржа</span>
-                                    </td>
-                                    <td class="text-end">
-                                        <strong class="crypto-price">$234.56</strong>
-                                    </td>
-                                    <td class="text-end">
-                                        <span class="crypto-change positive">+0.87%</span>
-                                    </td>
-                                </tr>
-                                <tr class="crypto-row" onclick="alert('Cardano детали скоро...');" style="cursor: pointer;">
-                                    <td>
-                                        <img src="https://cryptologos.cc/logos/cardano-ada-logo.png" alt="Cardano" class="crypto-logo">
-                                    </td>
-                                    <td><strong class="crypto-symbol">ADA</strong></td>
-                                    <td class="crypto-name">Cardano</td>
-                                    <td>
-                                        <span class="badge crypto-badge crypto-badge-platform">Платформа</span>
-                                    </td>
-                                    <td class="text-end">
-                                        <strong class="crypto-price">$0.456</strong>
-                                    </td>
-                                    <td class="text-end">
-                                        <span class="crypto-change positive">+3.45%</span>
-                                    </td>
-                                </tr>
-                                <tr class="crypto-row" onclick="alert('Solana детали скоро...');" style="cursor: pointer;">
-                                    <td>
-                                        <img src="https://cryptologos.cc/logos/solana-sol-logo.png" alt="Solana" class="crypto-logo">
-                                    </td>
-                                    <td><strong class="crypto-symbol">SOL</strong></td>
-                                    <td class="crypto-name">Solana</td>
-                                    <td>
-                                        <span class="badge crypto-badge crypto-badge-platform">Платформа</span>
-                                    </td>
-                                    <td class="text-end">
-                                        <strong class="crypto-price">$145.67</strong>
-                                    </td>
-                                    <td class="text-end">
-                                        <span class="crypto-change negative">-2.11%</span>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
+                
+                <div class="crypto-content">
+                    <div class="rocket-icon">
+                        <i class="fas fa-rocket"></i>
                     </div>
-                    
-                    <!-- Мобильная версия -->
-                    <div class="d-block d-md-none">
-                        <div class="crypto-mobile-item" onclick="alert('Bitcoin детали скоро...');">
-                            <div class="d-flex align-items-center">
-                                <div class="crypto-mobile-logo">
-                                    <img src="https://cryptologos.cc/logos/bitcoin-btc-logo.png" alt="Bitcoin" class="crypto-logo-mobile">
-                                </div>
-                                <div class="crypto-mobile-info flex-grow-1">
-                                    <div class="d-flex justify-content-between align-items-start">
-                                        <div>
-                                            <div class="crypto-mobile-symbol">BTC</div>
-                                            <div class="crypto-mobile-name">Bitcoin</div>
-                                            <span class="badge crypto-badge crypto-badge-currency">Валюта</span>
-                                        </div>
-                                        <div class="text-end">
-                                            <div class="crypto-mobile-price">$67,234.56</div>
-                                            <div class="crypto-change positive">+2.34%</div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                    <h1 class="crypto-title">Crypto Trading</h1>
+                    <h3 class="crypto-subtitle">Soon...</h3>
+                    <p class="crypto-description">
+                        Новая функция в разработке!
+                    </p>
+                    <div class="crypto-features">
+                        <div class="crypto-feature">
+                            <i class="fas fa-bitcoin"></i>
+                            <span>Bitcoin</span>
                         </div>
-                        
-                        <div class="crypto-mobile-item" onclick="alert('Ethereum детали скоро...');">
-                            <div class="d-flex align-items-center">
-                                <div class="crypto-mobile-logo">
-                                    <img src="https://cryptologos.cc/logos/ethereum-eth-logo.png" alt="Ethereum" class="crypto-logo-mobile">
-                                </div>
-                                <div class="crypto-mobile-info flex-grow-1">
-                                    <div class="d-flex justify-content-between align-items-start">
-                                        <div>
-                                            <div class="crypto-mobile-symbol">ETH</div>
-                                            <div class="crypto-mobile-name">Ethereum</div>
-                                            <span class="badge crypto-badge crypto-badge-platform">Платформа</span>
-                                        </div>
-                                        <div class="text-end">
-                                            <div class="crypto-mobile-price">$2,456.78</div>
-                                            <div class="crypto-change negative">-1.23%</div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                        <div class="crypto-feature">
+                            <i class="fab fa-ethereum"></i>
+                            <span>Ethereum</span>
                         </div>
-                        
-                        <div class="crypto-mobile-item" onclick="alert('Binance Coin детали скоро...');">
-                            <div class="d-flex align-items-center">
-                                <div class="crypto-mobile-logo">
-                                    <img src="https://cryptologos.cc/logos/bnb-bnb-logo.png" alt="BNB" class="crypto-logo-mobile">
-                                </div>
-                                <div class="crypto-mobile-info flex-grow-1">
-                                    <div class="d-flex justify-content-between align-items-start">
-                                        <div>
-                                            <div class="crypto-mobile-symbol">BNB</div>
-                                            <div class="crypto-mobile-name">Binance Coin</div>
-                                            <span class="badge crypto-badge crypto-badge-exchange">Биржа</span>
-                                        </div>
-                                        <div class="text-end">
-                                            <div class="crypto-mobile-price">$234.56</div>
-                                            <div class="crypto-change positive">+0.87%</div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                        <div class="crypto-feature">
+                            <i class="fas fa-coins"></i>
+                            <span>Altcoins</span>
                         </div>
-                        
-                        <div class="crypto-mobile-item" onclick="alert('Cardano детали скоро...');">
-                            <div class="d-flex align-items-center">
-                                <div class="crypto-mobile-logo">
-                                    <img src="https://cryptologos.cc/logos/cardano-ada-logo.png" alt="Cardano" class="crypto-logo-mobile">
-                                </div>
-                                <div class="crypto-mobile-info flex-grow-1">
-                                    <div class="d-flex justify-content-between align-items-start">
-                                        <div>
-                                            <div class="crypto-mobile-symbol">ADA</div>
-                                            <div class="crypto-mobile-name">Cardano</div>
-                                            <span class="badge crypto-badge crypto-badge-platform">Платформа</span>
-                                        </div>
-                                        <div class="text-end">
-                                            <div class="crypto-mobile-price">$0.456</div>
-                                            <div class="crypto-change positive">+3.45%</div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="crypto-mobile-item" onclick="alert('Solana детали скоро...');">
-                            <div class="d-flex align-items-center">
-                                <div class="crypto-mobile-logo">
-                                    <img src="https://cryptologos.cc/logos/solana-sol-logo.png" alt="Solana" class="crypto-logo-mobile">
-                                </div>
-                                <div class="crypto-mobile-info flex-grow-1">
-                                    <div class="d-flex justify-content-between align-items-start">
-                                        <div>
-                                            <div class="crypto-mobile-symbol">SOL</div>
-                                            <div class="crypto-mobile-name">Solana</div>
-                                            <span class="badge crypto-badge crypto-badge-platform">Платформа</span>
-                                        </div>
-                                        <div class="text-end">
-                                            <div class="crypto-mobile-price">$145.67</div>
-                                            <div class="crypto-change negative">-2.11%</div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Заглушка "Скоро больше функций" -->
-        <div class="row mt-4">
-            <div class="col-md-12">
-                <div class="crypto-coming-soon-small">
-                    <div class="crypto-content-small">
-                        <div class="rocket-icon-small">
-                            <i class="fas fa-rocket"></i>
-                        </div>
-                        <h4 class="crypto-title-small">Больше функций скоро...</h4>
-                        <p class="crypto-description-small">
-                            Торговля, портфолио, аналитика и многое другое!
-                        </p>
                     </div>
                 </div>
             </div>
@@ -434,65 +217,27 @@ function switchMarket(market) {
     const cryptoSection = document.getElementById('cryptoSection');
     const stocksBtn = document.getElementById('stocksBtn');
     const cryptoBtn = document.getElementById('cryptoBtn');
-    const body = document.body;
     
     if (market === 'stocks') {
-        // Показываем акции
         stocksSection.style.display = 'block';
         cryptoSection.style.display = 'none';
-        
-        // Обновляем кнопки
         stocksBtn.classList.add('active');
         cryptoBtn.classList.remove('active');
-        
-        // Убираем полноэкранный режим
-        cryptoSection.classList.remove('fullscreen-active');
-        body.style.overflow = 'auto';
-        
         localStorage.setItem('selectedMarket', 'stocks');
     } else {
-        // Показываем криптовалюты
         stocksSection.style.display = 'none';
         cryptoSection.style.display = 'block';
-        
-        // Обновляем кнопки
         stocksBtn.classList.remove('active');
         cryptoBtn.classList.add('active');
-        
-        // Включаем полноэкранный режим
-        cryptoSection.classList.add('fullscreen-active');
-        body.style.overflow = 'hidden';
-        
         localStorage.setItem('selectedMarket', 'crypto');
-        
-        // Добавляем анимацию появления звезд
-        setTimeout(() => {
-            const stars = cryptoSection.querySelectorAll('.stars, .stars2, .stars3');
-            stars.forEach((star, index) => {
-                star.style.animation = `twinkle ${5 + index * 2}s ease-in-out infinite`;
-            });
-        }, 100);
     }
 }
 
 // Восстановление выбора при загрузке страницы
 document.addEventListener('DOMContentLoaded', function() {
     const savedMarket = localStorage.getItem('selectedMarket') || 'stocks';
-    switchMarket(savedMarket);
-});
-
-// Восстанавливаем скролл при уходе со страницы
-window.addEventListener('beforeunload', function() {
-    document.body.style.overflow = 'auto';
-});
-
-// Добавляем кнопку выхода из полноэкранного режима
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') {
-        const cryptoSection = document.getElementById('cryptoSection');
-        if (cryptoSection.classList.contains('fullscreen-active')) {
-            switchMarket('stocks');
-        }
+    if (savedMarket === 'crypto') {
+        switchMarket('crypto');
     }
 });
 </script>
