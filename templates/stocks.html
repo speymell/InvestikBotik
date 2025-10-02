@@ -179,6 +179,11 @@
         <div class="stars3"></div>
     </div>
     
+    <!-- Кнопка выхода из полноэкранного режима -->
+    <button class="crypto-exit-btn" onclick="switchMarket('stocks')" title="Вернуться к акциям (ESC)">
+        <i class="fas fa-times"></i>
+    </button>
+    
     <div class="crypto-page-content">
         <div class="row mt-3">
             <div class="col-md-6">
@@ -432,18 +437,32 @@ function switchMarket(market) {
     const body = document.body;
     
     if (market === 'stocks') {
+        // Показываем акции
         stocksSection.style.display = 'block';
         cryptoSection.style.display = 'none';
+        
+        // Обновляем кнопки
         stocksBtn.classList.add('active');
         cryptoBtn.classList.remove('active');
-        body.style.overflow = 'auto'; // Восстанавливаем скролл
+        
+        // Убираем полноэкранный режим
+        cryptoSection.classList.remove('fullscreen-active');
+        body.style.overflow = 'auto';
+        
         localStorage.setItem('selectedMarket', 'stocks');
     } else {
+        // Показываем криптовалюты
         stocksSection.style.display = 'none';
         cryptoSection.style.display = 'block';
+        
+        // Обновляем кнопки
         stocksBtn.classList.remove('active');
         cryptoBtn.classList.add('active');
-        body.style.overflow = 'hidden'; // Убираем скролл для полноэкранного режима
+        
+        // Включаем полноэкранный режим
+        cryptoSection.classList.add('fullscreen-active');
+        body.style.overflow = 'hidden';
+        
         localStorage.setItem('selectedMarket', 'crypto');
         
         // Добавляем анимацию появления звезд
@@ -459,14 +478,22 @@ function switchMarket(market) {
 // Восстановление выбора при загрузке страницы
 document.addEventListener('DOMContentLoaded', function() {
     const savedMarket = localStorage.getItem('selectedMarket') || 'stocks';
-    if (savedMarket === 'crypto') {
-        switchMarket('crypto');
-    }
+    switchMarket(savedMarket);
 });
 
 // Восстанавливаем скролл при уходе со страницы
 window.addEventListener('beforeunload', function() {
     document.body.style.overflow = 'auto';
+});
+
+// Добавляем кнопку выхода из полноэкранного режима
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        const cryptoSection = document.getElementById('cryptoSection');
+        if (cryptoSection.classList.contains('fullscreen-active')) {
+            switchMarket('stocks');
+        }
+    }
 });
 </script>
 {% endblock %}

@@ -748,30 +748,51 @@ footer {
 .compact-stat-inline {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem;
-    border-radius: 8px;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    border-radius: 12px;
     transition: all 0.2s ease;
+    background: rgba(255, 255, 255, 0.5);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    min-width: 0;
+    flex: 1;
 }
 
 .compact-stat-inline:hover {
-    background-color: rgba(102, 126, 234, 0.05);
+    background-color: rgba(102, 126, 234, 0.08);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="dark"] .compact-stat-inline {
+    background: rgba(45, 55, 72, 0.8);
+    border-color: rgba(255, 255, 255, 0.1);
 }
 
 [data-theme="dark"] .compact-stat-inline:hover {
-    background-color: rgba(144, 205, 244, 0.05);
+    background-color: rgba(144, 205, 244, 0.1);
+}
+
+.compact-stat-inline i {
+    font-size: 1.25rem;
+    width: 24px;
+    text-align: center;
+    flex-shrink: 0;
 }
 
 .compact-stat-inline-label {
     font-size: 0.875rem;
     color: #6c757d;
     font-weight: 500;
+    white-space: nowrap;
 }
 
 .compact-stat-inline-value {
     font-size: 1.125rem;
     font-weight: 700;
     color: #2d3748;
+    margin-left: auto;
+    text-align: right;
 }
 
 [data-theme="dark"] .compact-stat-inline-label {
@@ -784,8 +805,19 @@ footer {
 
 @media (max-width: 768px) {
     .compact-stat-inline {
-        flex: 1 1 100%;
-        justify-content: space-between;
+        flex-direction: column;
+        text-align: center;
+        gap: 0.5rem;
+        padding: 1rem 0.75rem;
+    }
+    
+    .compact-stat-inline-value {
+        margin-left: 0;
+        text-align: center;
+    }
+    
+    .compact-stat-inline i {
+        font-size: 1.5rem;
     }
 }
 
@@ -1218,14 +1250,26 @@ footer {
 /* Полноэкранная криптосекция */
 .crypto-full-page {
     position: relative;
-    min-height: 100vh;
-    margin: -2rem -15px 0 -15px;
-    padding: 2rem 15px;
     background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+    border-radius: 16px;
+    margin-top: 1rem;
+    padding: 2rem;
+}
+
+.crypto-full-page.fullscreen-active {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 9999;
+    margin: 0;
+    border-radius: 0;
+    min-height: 100vh;
 }
 
 .space-background-full {
-    position: fixed;
+    position: absolute;
     top: 0;
     left: 0;
     right: 0;
@@ -1475,6 +1519,38 @@ footer {
     font-size: 1rem;
     color: rgba(255, 255, 255, 0.8);
     margin: 0;
+}
+
+/* Кнопка выхода из полноэкранного режима */
+.crypto-exit-btn {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    z-index: 10;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: white;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+}
+
+.crypto-exit-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.4);
+    transform: scale(1.1);
+    color: white;
+}
+
+.crypto-exit-btn:active {
+    transform: scale(0.95);
 }
 
 /* Адаптивность */
