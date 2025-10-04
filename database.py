@@ -35,3 +35,5 @@ class Transaction(db.Model):
     timestamp = db.Column(db.DateTime, server_default=db.func.now())
     account_id = db.Column(db.Integer, db.ForeignKey('account.id'), nullable=False)
     stock_id = db.Column(db.Integer, db.ForeignKey('stock.id'), nullable=True)
+    # Relationship to access stock from transaction in templates
+    stock = db.relationship('Stock', backref='transactions', lazy=True)

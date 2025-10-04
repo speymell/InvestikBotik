@@ -646,15 +646,18 @@ def init_routes(app):
                              portfolio_stats=portfolio_stats,
                              recent_transactions=recent_transactions,
                              top_stocks=top_stocks)
-    
+
     @app.route('/stocks')
     def stocks():
         """Страница со списком акций"""
         page = request.args.get('page', 1, type=int)
         search = request.args.get('search', '')
-        
+        ins_type = request.args.get('type', 'share')
+
         query = Stock.query
-        
+        if ins_type in ('share', 'bond'):
+            query = query.filter(Stock.instrument_type == ins_type)
+
         if search:
             from sqlalchemy import or_
             query = query.filter(
@@ -663,655 +666,383 @@ def init_routes(app):
                     Stock.name.contains(search)
                 )
             )
-        
+
         stocks = query.paginate(
             page=page, per_page=50, error_out=False
         )
-        
+
         return render_template('stocks.html', stocks=stocks, search=search)
+
+    @app.route('/api/news/<ticker>')
+    def get_stock_news(ticker):
+        """Возвращает список новостей с MOEX sitenews, отфильтрованных по тикеру/названию."""
+        try:
+            import requests
+            stock = Stock.query.filter_by(ticker=ticker).first()
+            name = stock.name if stock else ticker
+            url = 'https://iss.moex.com/iss/sitenews.json'
+            params = {'iss.meta': 'off'}
+            r = requests.get(url, params=params, timeout=8)
+            r.raise_for_status()
+            data = r.json()
+            items = []
+            if 'sitenews' in data and 'data' in data['sitenews']:
+                cols = data['sitenews']['columns']
+                def idx(col):
+                    return cols.index(col) if col in cols else None
+                id_i = idx('id'); title_i = idx('title'); url_i = idx('url'); pub_i = idx('published_at')
+                for row in data['sitenews']['data']:
+                    try:
+                        title = row[title_i] if title_i is not None else ''
+                        if not title:
+                            continue
+                        key = ticker.upper(); company = (name or '').upper()
+                        if key not in title.upper() and (company and company not in title.upper()):
+                            continue
+                        items.append({
+                            'id': row[id_i] if id_i is not None else None,
+                            'title': title,
+                            'url': row[url_i] if url_i is not None else None,
+                            'published_at': row[pub_i] if pub_i is not None else None
+                        })
+                        if len(items) >= 8:
+                            break
+                    except Exception:
+                        continue
+            return jsonify({'success': True, 'items': items, 'ticker': ticker})
+        except Exception as e:
+            logger.warning(f"Новости недоступны для {ticker}: {e}")
+            return jsonify({'success': False, 'items': []})
+        
+    # Register routes defined below (plain functions without decorators)
+    # '/stocks' and '/api/news/<ticker>' are already registered via decorators above
+    # Avoid duplicate registration to prevent endpoint overwrite errors
+    app.add_url_rule('/api/deposit', view_func=deposit, methods=['POST'])
+    app.add_url_rule('/api/withdraw', view_func=withdraw, methods=['POST'])
+    app.add_url_rule('/api/buy_stock', view_func=buy_stock, methods=['POST'])
+    app.add_url_rule('/api/add_historical_buy', view_func=add_historical_buy, methods=['POST'])
+    app.add_url_rule('/api/sell_stock', view_func=sell_stock, methods=['POST'])
+    app.add_url_rule('/api/accounts', view_func=get_accounts)
+    app.add_url_rule('/api/stock_history/<ticker>', view_func=get_stock_history_api)
+    app.add_url_rule('/api/stock_intraday/<ticker>', view_func=get_stock_intraday_api)
+    app.add_url_rule('/admin/logos', view_func=admin_logos_page)
+    app.add_url_rule('/admin/update_logos', view_func=admin_update_logos)
+    app.add_url_rule('/api/create_account', view_func=create_account, methods=['POST'])
+    app.add_url_rule('/api/stock_price/<ticker>', view_func=get_stock_price)
+    app.add_url_rule('/api/update_all_prices', view_func=update_all_prices)
+    app.add_url_rule('/admin/sync-bonds', view_func=sync_bonds)
     
-    @app.route('/stock/<ticker>')
-    def stock_detail(ticker):
-        """Детальная информация об акции"""
-        stock = Stock.query.filter_by(ticker=ticker).first_or_404()
+def deposit():
+    """API для пополнения счета"""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Некорректные данные запроса'}), 400
         
-        # Получаем информацию о позициях пользователя по этой акции
-        user_positions = []
-        if 'user_id' in session:
-            user = User.query.get(session['user_id'])
-            # Получаем все транзакции покупки/продажи этой акции
-            transactions = Transaction.query.join(Account).filter(
-                Account.user_id == user.id,
-                Transaction.stock_id == stock.id,
-                Transaction.type.in_(['buy', 'sell'])
-            ).order_by(Transaction.timestamp.desc()).all()
-            
-            # Подсчитываем текущую позицию
-            total_quantity = 0
-            total_cost = 0
-            
-            for transaction in transactions:
-                if transaction.type == 'buy':
-                    total_quantity += transaction.quantity
-                    total_cost += transaction.quantity * transaction.price
-                elif transaction.type == 'sell':
-                    total_quantity -= transaction.quantity
-                    total_cost -= transaction.quantity * transaction.price
-            
-            if total_quantity > 0:
-                avg_price = total_cost / total_quantity
-                current_value = total_quantity * stock.price
-                profit_loss = current_value - total_cost
-                profit_loss_percent = (profit_loss / total_cost) * 100 if total_cost > 0 else 0
-                
-                user_positions = {
-                    'quantity': total_quantity,
-                    'avg_price': avg_price,
-                    'current_value': current_value,
-                    'profit_loss': profit_loss,
-                    'profit_loss_percent': profit_loss_percent
-                }
-        
+        account_id = int(data.get('account_id'))
+        amount = float(data.get('amount', 0))
+    except Exception as e:
+        return jsonify({'error': f'Ошибка обработки данных: {str(e)}'}), 400
+    
+    if amount <= 0:
+        return jsonify({'error': 'Сумма должна быть положительной'}), 400
+    
+    account = Account.query.filter_by(
+        id=account_id, 
+        user_id=session['user_id']
+    ).first()
+    
+    if not account:
+        return jsonify({'error': 'Счет не найден'}), 404
+    
+    # Создаем транзакцию пополнения
+    transaction = Transaction(
+        type='deposit',
+        amount=amount,
+        account=account
+    )
+    
+    # Обновляем баланс счета
+    account.balance += amount
+    
+    db.session.add(transaction)
+    db.session.commit()
+    
+    return jsonify({'success': True, 'new_balance': account.balance})
+ 
+def withdraw():
+    """API для вывода средств со счета"""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Некорректные данные запроса'}), 400
+        account_id = int(data.get('account_id'))
+        amount = float(data.get('amount', 0))
+    except Exception as e:
+        return jsonify({'error': f'Ошибка обработки данных: {str(e)}'}), 400
+    if amount <= 0:
+        return jsonify({'error': 'Сумма должна быть положительной'}), 400
+    account = Account.query.filter_by(id=account_id, user_id=session['user_id']).first()
+    if not account:
+        return jsonify({'error': 'Счет не найден'}), 404
+    if account.balance < amount:
+        return jsonify({'error': 'Недостаточно средств на счете'}), 400
+    transaction = Transaction(type='withdrawal', amount=amount, account=account)
+    account.balance -= amount
+    db.session.add(transaction)
+    db.session.commit()
+    return jsonify({'success': True, 'new_balance': account.balance})
+
+def buy_stock():
+    """API для покупки акций"""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    data = request.get_json()
+    account_id = int(data.get('account_id'))
+    stock_id = int(data.get('stock_id'))
+    quantity = int(data.get('quantity', 0))
+    if quantity <= 0:
+        return jsonify({'error': 'Количество должно быть положительным'}), 400
+    account = Account.query.filter_by(id=account_id, user_id=session['user_id']).first()
+    stock = Stock.query.get(stock_id)
+    if not account or not stock:
+        return jsonify({'error': 'Счет или акция не найдены'}), 404
+    total_cost = quantity * stock.price
+    if account.balance < total_cost:
+        return jsonify({'error': 'Недостаточно средств на счете'}), 400
+    transaction = Transaction(type='buy', amount=total_cost, price=stock.price, quantity=quantity, account=account, stock_id=stock.id)
+    account.balance -= total_cost
+    db.session.add(transaction)
+    db.session.commit()
+    return jsonify({'success': True, 'new_balance': account.balance})
+
+def add_historical_buy():
+    """API для добавления исторической покупки акций"""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    data = request.get_json()
+    account_id = int(data.get('account_id'))
+    stock_id = int(data.get('stock_id'))
+    quantity = int(data.get('quantity', 0))
+    price = float(data.get('price', 0))
+    purchase_date = data.get('purchase_date')
+    if quantity <= 0:
+        return jsonify({'error': 'Количество должно быть положительным'}), 400
+    if price <= 0:
+        return jsonify({'error': 'Цена должна быть положительной'}), 400
+    account = Account.query.filter_by(id=account_id, user_id=session['user_id']).first()
+    stock = Stock.query.get(stock_id)
+    if not account or not stock:
+        return jsonify({'error': 'Счет или акция не найдены'}), 404
+    try:
         from datetime import datetime as dt
-        today = dt.now().strftime('%Y-%m-%d')
-        
-        return render_template('stock_detail.html', 
-                             stock=stock, 
-                             user_positions=user_positions,
-                             today=today)
-    
-    @app.route('/account/<int:account_id>')
-    def account_detail(account_id):
-        """Детальная информация о счете"""
-        if 'user_id' not in session:
-            return redirect(url_for('login'))
-        
-        account = Account.query.filter_by(
-            id=account_id, 
-            user_id=session['user_id']
-        ).first_or_404()
-        
-        transactions = Transaction.query.filter_by(
-            account_id=account_id
-        ).order_by(Transaction.timestamp.desc()).all()
-        
-        return render_template('account_detail.html', 
-                             account=account, 
-                             transactions=transactions)
-    
-    @app.route('/api/deposit', methods=['POST'])
-    def deposit():
-        """API для пополнения счета"""
-        if 'user_id' not in session:
-            return jsonify({'error': 'Не авторизован'}), 401
-        
-        try:
-            data = request.get_json()
-            if not data:
-                return jsonify({'error': 'Некорректные данные запроса'}), 400
-            
-            account_id = int(data.get('account_id'))
-            amount = float(data.get('amount', 0))
-        except Exception as e:
-            return jsonify({'error': f'Ошибка обработки данных: {str(e)}'}), 400
-        
-        if amount <= 0:
-            return jsonify({'error': 'Сумма должна быть положительной'}), 400
-        
-        account = Account.query.filter_by(
-            id=account_id, 
-            user_id=session['user_id']
-        ).first()
-        
-        if not account:
-            return jsonify({'error': 'Счет не найден'}), 404
-        
-        # Создаем транзакцию пополнения
-        transaction = Transaction(
-            type='deposit',
-            amount=amount,
-            account=account
-        )
-        
-        # Обновляем баланс счета
-        account.balance += amount
-        
-        db.session.add(transaction)
-        db.session.commit()
-        
-        return jsonify({'success': True, 'new_balance': account.balance})
-    
-    @app.route('/api/withdraw', methods=['POST'])
-    def withdraw():
-        """API для вывода средств со счета"""
-        if 'user_id' not in session:
-            return jsonify({'error': 'Не авторизован'}), 401
-        
-        try:
-            data = request.get_json()
-            if not data:
-                return jsonify({'error': 'Некорректные данные запроса'}), 400
-            
-            account_id = int(data.get('account_id'))
-            amount = float(data.get('amount', 0))
-        except Exception as e:
-            return jsonify({'error': f'Ошибка обработки данных: {str(e)}'}), 400
-        
-        if amount <= 0:
-            return jsonify({'error': 'Сумма должна быть положительной'}), 400
-        
-        account = Account.query.filter_by(
-            id=account_id, 
-            user_id=session['user_id']
-        ).first()
-        
-        if not account:
-            return jsonify({'error': 'Счет не найден'}), 404
-        
-        if account.balance < amount:
-            return jsonify({'error': 'Недостаточно средств на счете'}), 400
-        
-        # Создаем транзакцию вывода
-        transaction = Transaction(
-            type='withdrawal',
-            amount=amount,
-            account=account
-        )
-        
-        # Обновляем баланс счета
-        account.balance -= amount
-        
-        db.session.add(transaction)
-        db.session.commit()
-        
-        return jsonify({'success': True, 'new_balance': account.balance})
-    
-    @app.route('/api/buy_stock', methods=['POST'])
-    def buy_stock():
-        """API для покупки акций"""
-        if 'user_id' not in session:
-            return jsonify({'error': 'Не авторизован'}), 401
-        
-        data = request.get_json()
-        account_id = int(data.get('account_id'))
-        stock_id = int(data.get('stock_id'))
-        quantity = int(data.get('quantity', 0))
-        
-        if quantity <= 0:
-            return jsonify({'error': 'Количество должно быть положительным'}), 400
-        
-        account = Account.query.filter_by(
-            id=account_id, 
-            user_id=session['user_id']
-        ).first()
-        
-        stock = Stock.query.get(stock_id)
-        
-        if not account or not stock:
-            return jsonify({'error': 'Счет или акция не найдены'}), 404
-        
-        total_cost = quantity * stock.price
-        
-        if account.balance < total_cost:
-            return jsonify({'error': 'Недостаточно средств на счете'}), 400
-        
-        # Создаем транзакцию покупки
-        transaction = Transaction(
-            type='buy',
-            amount=total_cost,
-            price=stock.price,
-            quantity=quantity,
-            account=account,
-            stock_id=stock.id
-        )
-        
-        # Обновляем баланс счета
-        account.balance -= total_cost
-        
-        db.session.add(transaction)
-        db.session.commit()
-        
-        return jsonify({'success': True, 'new_balance': account.balance})
-    
-    @app.route('/api/add_historical_buy', methods=['POST'])
-    def add_historical_buy():
-        """API для добавления исторической покупки акций"""
-        if 'user_id' not in session:
-            return jsonify({'error': 'Не авторизован'}), 401
-        
-        data = request.get_json()
-        account_id = int(data.get('account_id'))
-        stock_id = int(data.get('stock_id'))
-        quantity = int(data.get('quantity', 0))
-        price = float(data.get('price', 0))
-        purchase_date = data.get('purchase_date')  # формат: YYYY-MM-DD
-        
-        if quantity <= 0:
-            return jsonify({'error': 'Количество должно быть положительным'}), 400
-        
-        if price <= 0:
-            return jsonify({'error': 'Цена должна быть положительной'}), 400
-        
-        account = Account.query.filter_by(
-            id=account_id, 
-            user_id=session['user_id']
-        ).first()
-        
-        stock = Stock.query.get(stock_id)
-        
-        if not account or not stock:
-            return jsonify({'error': 'Счет или акция не найдены'}), 404
-        
-        # Парсим дату
-        try:
-            from datetime import datetime as dt
-            purchase_datetime = dt.strptime(purchase_date, '%Y-%m-%d')
-            
-            # Проверяем, что дата не в будущем
-            if purchase_datetime > dt.now():
-                return jsonify({'error': 'Дата покупки не может быть в будущем'}), 400
-        except ValueError:
-            return jsonify({'error': 'Неверный формат даты'}), 400
-        
-        total_cost = quantity * price
-        
-        # Создаем транзакцию покупки с исторической датой
-        transaction = Transaction(
-            type='buy',
-            amount=total_cost,
-            price=price,
-            quantity=quantity,
-            account=account,
-            stock_id=stock.id,
-            timestamp=purchase_datetime
-        )
-        
-        db.session.add(transaction)
-        db.session.commit()
-        
-        return jsonify({
-            'success': True, 
-            'message': 'Историческая покупка добавлена',
-            'total_cost': total_cost,
-            'transaction_id': transaction.id
-        })
-    
-    @app.route('/api/sell_stock', methods=['POST'])
-    def sell_stock():
-        """API для продажи акций"""
-        if 'user_id' not in session:
-            return jsonify({'error': 'Не авторизован'}), 401
-        
-        data = request.get_json()
-        account_id = int(data.get('account_id'))
-        stock_id = int(data.get('stock_id'))
-        quantity = int(data.get('quantity', 0))
-        
-        if quantity <= 0:
-            return jsonify({'error': 'Количество должно быть положительным'}), 400
-        
-        account = Account.query.filter_by(
-            id=account_id, 
-            user_id=session['user_id']
-        ).first()
-        
-        stock = Stock.query.get(stock_id)
-        
-        if not account or not stock:
-            return jsonify({'error': 'Счет или акция не найдены'}), 404
-        
-        # Проверяем, достаточно ли акций для продажи
-        buy_transactions = Transaction.query.filter_by(
-            account_id=account_id,
-            stock_id=stock_id,
-            type='buy'
-        ).all()
-        
-        sell_transactions = Transaction.query.filter_by(
-            account_id=account_id,
-            stock_id=stock_id,
-            type='sell'
-        ).all()
-        
-        total_bought = sum(t.quantity for t in buy_transactions)
-        total_sold = sum(t.quantity for t in sell_transactions)
-        available_quantity = total_bought - total_sold
-        
-        if available_quantity < quantity:
-            return jsonify({'error': 'Недостаточно акций для продажи'}), 400
-        
-        total_revenue = quantity * stock.price
-        
-        # Создаем транзакцию продажи
-        transaction = Transaction(
-            type='sell',
-            amount=total_revenue,
-            price=stock.price,
-            quantity=quantity,
-            account=account,
-            stock_id=stock.id
-        )
-        
-        # Обновляем баланс счета
-        account.balance += total_revenue
-        
-        db.session.add(transaction)
-        db.session.commit()
-        
-        return jsonify({'success': True, 'new_balance': account.balance})
-    
-    @app.route('/api/accounts')
-    def get_accounts():
-        """API для получения списка счетов пользователя"""
-        if 'user_id' not in session:
-            return jsonify({'error': 'Не авторизован'}), 401
-        
-        accounts = Account.query.filter_by(user_id=session['user_id']).all()
-        
-        return jsonify({
-            'success': True,
-            'accounts': [{
-                'id': acc.id,
-                'name': acc.name,
-                'balance': acc.balance
-            } for acc in accounts]
-        })
-    
-    @app.route('/api/stock_history/<ticker>')
-    def get_stock_history_api(ticker):
-        """API для получения истории цен акции"""
-        try:
-            from stock_api import stock_api_service
-            
-            # Получаем параметр days (по умолчанию 7)
-            days = request.args.get('days', 7, type=int)
-            
-            # Ограничиваем максимум 120 дней (для 3M и чуть больше)
-            if days > 120:
-                days = 120
-            
-            # Получаем историю с MOEX
-            history = stock_api_service.get_stock_history(ticker, days)
-            
-            if history:
-                return jsonify({
-                    'success': True,
-                    'ticker': ticker,
-                    'days': days,
-                    'data': history
-                })
-            else:
-                # Если нет данных с MOEX, возвращаем пустой массив
-                return jsonify({
-                    'success': False,
-                    'ticker': ticker,
-                    'message': 'Нет данных с MOEX',
-                    'data': []
-                })
-                
-        except Exception as e:
-            logger.error(f"Ошибка получения истории для {ticker}: {e}")
-            return jsonify({
-                'success': False,
-                'error': str(e),
-                'data': []
-            }), 500
+        purchase_datetime = dt.strptime(purchase_date, '%Y-%m-%d')
+        if purchase_datetime > dt.now():
+            return jsonify({'error': 'Дата покупки не может быть в будущем'}), 400
+    except ValueError:
+        return jsonify({'error': 'Неверный формат даты'}), 400
+    total_cost = quantity * price
+    transaction = Transaction(type='buy', amount=total_cost, price=price, quantity=quantity, account=account, stock_id=stock.id, timestamp=purchase_datetime)
+    db.session.add(transaction)
+    db.session.commit()
+    return jsonify({'success': True, 'message': 'Историческая покупка добавлена', 'total_cost': total_cost, 'transaction_id': transaction.id})
 
-    @app.route('/api/stock_intraday/<ticker>')
-    def get_stock_intraday_api(ticker):
-        """API для получения внутридневной истории (по умолчанию 10-мин свечи за 24 часа)"""
-        try:
-            from stock_api import stock_api_service
-            interval = request.args.get('interval', 10, type=int)
-            hours = request.args.get('hours', 24, type=int)
-            # sanity caps
-            if interval not in (1, 10, 60):
-                interval = 10
-            if hours > 72:
-                hours = 72
-            data = stock_api_service.get_intraday_history(ticker, interval=interval, hours=hours)
-            return jsonify({
-                'success': True,
-                'ticker': ticker,
-                'interval': interval,
-                'hours': hours,
-                'data': data
-            })
-        except Exception as e:
-            logger.error(f"Ошибка intraday для {ticker}: {e}")
-            return jsonify({'success': False, 'error': str(e), 'data': []}), 500
-    
-    @app.route('/admin/logos')
-    def admin_logos_page():
-        """Страница обновления логотипов"""
-        if 'user_id' not in session:
-            return redirect(url_for('login'))
-        
-        return render_template('admin_update_logos.html')
-    
-    @app.route('/admin/update_logos')
-    def admin_update_logos():
-        """Обновление всех логотипов акций"""
-        if 'user_id' not in session:
-            return jsonify({'error': 'Не авторизован'}), 401
-        
-        try:
-            from stock_api import stock_api_service
-            
-            stocks = Stock.query.all()
-            updated_count = 0
-            
-            for stock in stocks:
-                try:
-                    new_logo_url = stock_api_service._get_logo_url(stock.ticker)
-                    if new_logo_url:
-                        stock.logo_url = new_logo_url
-                        updated_count += 1
-                except Exception as e:
-                    logger.error(f"Ошибка обновления логотипа для {stock.ticker}: {e}")
-                    continue
-            
-            db.session.commit()
-            
-            return jsonify({
-                'success': True,
-                'message': f'Обновлено {updated_count} логотипов из {len(stocks)}',
-                'updated': updated_count,
-                'total': len(stocks)
-            })
-            
-        except Exception as e:
-            logger.error(f"Ошибка обновления логотипов: {e}")
-            return jsonify({'error': str(e)}), 500
-    
-    @app.route('/api/create_account', methods=['POST'])
-    def create_account():
-        """API для создания нового счета"""
-        if 'user_id' not in session:
-            return jsonify({'error': 'Не авторизован'}), 401
-        
-        data = request.get_json()
-        account_name = data.get('name', '').strip()
-        
-        if not account_name:
-            return jsonify({'error': 'Имя счета не может быть пустым'}), 400
-        
-        # Проверяем, не существует ли уже счет с таким именем
-        existing_account = Account.query.filter_by(
-            user_id=session['user_id'],
-            name=account_name
-        ).first()
-        
-        if existing_account:
-            return jsonify({'error': 'Счет с таким именем уже существует'}), 400
-        
-        # Создаем новый счет
-        new_account = Account(
-            name=account_name,
-            balance=0.0,
-            user_id=session['user_id']
-        )
-        
-        db.session.add(new_account)
+def sell_stock():
+    """API для продажи акций"""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    data = request.get_json()
+    account_id = int(data.get('account_id'))
+    stock_id = int(data.get('stock_id'))
+    quantity = int(data.get('quantity', 0))
+    if quantity <= 0:
+        return jsonify({'error': 'Количество должно быть положительным'}), 400
+    account = Account.query.filter_by(id=account_id, user_id=session['user_id']).first()
+    stock = Stock.query.get(stock_id)
+    if not account or not stock:
+        return jsonify({'error': 'Счет или акция не найдены'}), 404
+    buy_transactions = Transaction.query.filter_by(account_id=account_id, stock_id=stock_id, type='buy').all()
+    sell_transactions = Transaction.query.filter_by(account_id=account_id, stock_id=stock_id, type='sell').all()
+    total_bought = sum(t.quantity for t in buy_transactions)
+    total_sold = sum(t.quantity for t in sell_transactions)
+    available_quantity = total_bought - total_sold
+    if available_quantity < quantity:
+        return jsonify({'error': 'Недостаточно акций для продажи'}), 400
+    total_revenue = quantity * stock.price
+    transaction = Transaction(type='sell', amount=total_revenue, price=stock.price, quantity=quantity, account=account, stock_id=stock.id)
+    account.balance += total_revenue
+    db.session.add(transaction)
+    db.session.commit()
+    return jsonify({'success': True, 'new_balance': account.balance})
+
+def get_accounts():
+    """API для получения списка счетов пользователя"""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    accounts = Account.query.filter_by(user_id=session['user_id']).all()
+    return jsonify({'success': True, 'accounts': [{'id': acc.id, 'name': acc.name, 'balance': acc.balance} for acc in accounts]})
+
+def get_stock_history_api(ticker):
+    """API для получения истории цен акции"""
+    try:
+        from stock_api import stock_api_service
+        days = request.args.get('days', 7, type=int)
+        if days > 120:
+            days = 120
+        history = stock_api_service.get_stock_history(ticker, days)
+        if history:
+            return jsonify({'success': True, 'ticker': ticker, 'days': days, 'data': history})
+        else:
+            return jsonify({'success': False, 'ticker': ticker, 'message': 'Нет данных с MOEX', 'data': []})
+    except Exception as e:
+        logger.error(f"Ошибка получения истории для {ticker}: {e}")
+        return jsonify({'success': False, 'error': str(e), 'data': []}), 500
+
+def get_stock_intraday_api(ticker):
+    """API для получения внутридневной истории (по умолчанию 10-мин свечи за 24 часа)"""
+    try:
+        from stock_api import stock_api_service
+        interval = request.args.get('interval', 10, type=int)
+        hours = request.args.get('hours', 24, type=int)
+        if interval not in (1, 10, 60):
+            interval = 10
+        if hours > 72:
+            hours = 72
+        data = stock_api_service.get_intraday_history(ticker, interval=interval, hours=hours)
+        return jsonify({'success': True, 'ticker': ticker, 'interval': interval, 'hours': hours, 'data': data})
+    except Exception as e:
+        logger.error(f"Ошибка intraday для {ticker}: {e}")
+        return jsonify({'success': False, 'error': str(e), 'data': []}), 500
+
+def admin_logos_page():
+    """Страница обновления логотипов"""
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    return render_template('admin_update_logos.html')
+
+def admin_update_logos():
+    """Обновление всех логотипов акций"""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    try:
+        from stock_api import stock_api_service
+        stocks = Stock.query.all()
+        updated_count = 0
+        for stock in stocks:
+            try:
+                new_logo_url = stock_api_service._get_logo_url(stock.ticker)
+                if new_logo_url:
+                    stock.logo_url = new_logo_url
+                    updated_count += 1
+            except Exception as e:
+                logger.error(f"Ошибка обновления логотипа для {stock.ticker}: {e}")
+                continue
         db.session.commit()
-        
-        return jsonify({
-            'success': True,
-            'account': {
-                'id': new_account.id,
-                'name': new_account.name,
-                'balance': new_account.balance
-            }
-        })
-    
-    @app.route('/api/stock_price/<ticker>')
-    def get_stock_price(ticker):
-        """API для получения актуальной цены акции"""
-        try:
-            from stock_api import stock_api_service
-            
-            # Определяем тип инструмента
-            stock = Stock.query.filter_by(ticker=ticker).first()
-            current_price = None
-            if stock and getattr(stock, 'instrument_type', 'share') == 'bond':
-                current_price = stock_api_service._get_bond_price(ticker, getattr(stock, 'face_value', None))
-            else:
-                current_price = stock_api_service._get_stock_price(ticker)
-            
-            if current_price and current_price > 0:
-                # Обновляем цену в базе данных
-                if stock:
-                    stock.price = current_price
-                    db.session.commit()
-                
-                return jsonify({
-                    'success': True,
-                    'ticker': ticker,
-                    'price': current_price,
-                    'source': 'moex_api'
-                })
-            
-            # Если не удалось получить цену через API, возвращаем из БД
-            if stock and stock.price:
-                return jsonify({
-                    'success': True,
-                    'ticker': ticker,
-                    'price': stock.price,
-                    'cached': True,
-                    'source': 'database'
-                })
-            
-            return jsonify({'success': False, 'error': 'Stock not found or no price available'}), 404
-            
-        except Exception as e:
-            logger.error(f"Ошибка получения цены для {ticker}: {e}")
-            # В случае ошибки возвращаем цену из БД
-            stock = Stock.query.filter_by(ticker=ticker).first()
-            if stock and stock.price:
-                return jsonify({
-                    'success': True,
-                    'ticker': ticker,
-                    'price': stock.price,
-                    'cached': True,
-                    'error': str(e),
-                    'source': 'database_fallback'
-                })
-            return jsonify({'success': False, 'error': str(e)}), 500
-    
-    @app.route('/api/update_all_prices')
-    def update_all_prices():
-        """API для быстрого обновления цен популярных акций"""
-        try:
-            from stock_api import stock_api_service
-            import time
-            
-            # Получаем все акции из базы данных
-            stocks = Stock.query.all()
-            
-            updated_count = 0
-            failed_count = 0
-            results = []
-            start_time = time.time()
-            
-            # Разделяем акции и облигации
-            share_tickers = [s.ticker for s in stocks if getattr(s, 'instrument_type', 'share') == 'share']
-            bond_tickers = [s.ticker for s in stocks if getattr(s, 'instrument_type', 'share') == 'bond']
-            face_values_map = {s.ticker: getattr(s, 'face_value', None) for s in stocks if getattr(s, 'instrument_type', 'share') == 'bond'}
-            
-            prices = {}
-            if share_tickers:
-                prices.update(stock_api_service.get_multiple_stock_prices(share_tickers, timeout=10))
-            if bond_tickers:
-                prices.update(stock_api_service.get_multiple_bond_prices(bond_tickers, face_values_map=face_values_map, timeout=10))
-            
-            # Обновляем цены в базе данных
-            for stock in stocks:
-                try:
-                    if stock.ticker in prices:
-                        new_price = prices[stock.ticker]
-                        old_price = stock.price
-                        stock.price = new_price
-                        updated_count += 1
-                        results.append({
-                            'ticker': stock.ticker,
-                            'old_price': old_price,
-                            'new_price': new_price,
-                            'status': 'updated'
-                        })
-                        logger.info(f"Обновлена цена {stock.ticker}: {old_price} → {new_price}")
-                    else:
-                        failed_count += 1
-                        results.append({
-                            'ticker': stock.ticker,
-                            'status': 'failed',
-                            'error': 'No price received'
-                        })
-                        logger.warning(f"Не удалось получить цену для {stock.ticker}")
-                except Exception as e:
+        return jsonify({'success': True, 'message': f'Обновлено {updated_count} логотипов из {len(stocks)}', 'updated': updated_count, 'total': len(stocks)})
+    except Exception as e:
+        logger.error(f"Ошибка обновления логотипов: {e}")
+        return jsonify({'error': str(e)}), 500
+
+def create_account():
+    """API для создания нового счета"""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    data = request.get_json()
+    account_name = data.get('name', '').strip()
+    if not account_name:
+        return jsonify({'error': 'Имя счета не может быть пустым'}), 400
+    existing_account = Account.query.filter_by(user_id=session['user_id'], name=account_name).first()
+    if existing_account:
+        return jsonify({'error': 'Счет с таким именем уже существует'}), 400
+    new_account = Account(name=account_name, balance=0.0, user_id=session['user_id'])
+    db.session.add(new_account)
+    db.session.commit()
+    return jsonify({'success': True, 'account': {'id': new_account.id, 'name': new_account.name, 'balance': new_account.balance}})
+
+def get_stock_price(ticker):
+    """API для получения актуальной цены акции"""
+    try:
+        from stock_api import stock_api_service
+        stock = Stock.query.filter_by(ticker=ticker).first()
+        current_price = None
+        if stock and getattr(stock, 'instrument_type', 'share') == 'bond':
+            current_price = stock_api_service._get_bond_price(ticker, getattr(stock, 'face_value', None))
+        else:
+            current_price = stock_api_service._get_stock_price(ticker)
+        if current_price and current_price > 0:
+            if stock:
+                stock.price = current_price
+                db.session.commit()
+            return jsonify({'success': True, 'ticker': ticker, 'price': current_price, 'source': 'moex_api'})
+        if stock and stock.price:
+            return jsonify({'success': True, 'ticker': ticker, 'price': stock.price, 'cached': True, 'source': 'database'})
+        return jsonify({'success': False, 'error': 'Stock not found or no price available'}), 404
+    except Exception as e:
+        logger.error(f"Ошибка получения цены для {ticker}: {e}")
+        stock = Stock.query.filter_by(ticker=ticker).first()
+        if stock and stock.price:
+            return jsonify({'success': True, 'ticker': ticker, 'price': stock.price, 'cached': True, 'error': str(e), 'source': 'database_fallback'})
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+def update_all_prices():
+    """API для быстрого обновления цен популярных акций"""
+    try:
+        from stock_api import stock_api_service
+        import time
+        stocks = Stock.query.all()
+        updated_count = 0
+        failed_count = 0
+        results = []
+        start_time = time.time()
+        share_tickers = [s.ticker for s in stocks if getattr(s, 'instrument_type', 'share') == 'share']
+        bond_tickers = [s.ticker for s in stocks if getattr(s, 'instrument_type', 'share') == 'bond']
+        face_values_map = {s.ticker: getattr(s, 'face_value', None) for s in stocks if getattr(s, 'instrument_type', 'share') == 'bond'}
+        prices = {}
+        if share_tickers:
+            prices.update(stock_api_service.get_multiple_stock_prices(share_tickers, timeout=10))
+        if bond_tickers:
+            prices.update(stock_api_service.get_multiple_bond_prices(bond_tickers, face_values_map=face_values_map, timeout=10))
+        for stock in stocks:
+            try:
+                if stock.ticker in prices:
+                    new_price = prices[stock.ticker]
+                    old_price = stock.price
+                    stock.price = new_price
+                    updated_count += 1
+                    results.append({'ticker': stock.ticker, 'old_price': old_price, 'new_price': new_price, 'status': 'updated'})
+                    logger.info(f"Обновлена цена {stock.ticker}: {old_price} → {new_price}")
+                else:
                     failed_count += 1
-                    results.append({
-                        'ticker': stock.ticker,
-                        'status': 'error',
-                        'error': str(e)
-                    })
-                    logger.error(f"Ошибка обновления {stock.ticker}: {e}")
-            
-            db.session.commit()
-            
-            return jsonify({
-                'success': True,
-                'message': f'Обновлено: {updated_count} акций, ошибок: {failed_count}, всего: {len(stocks)}',
-                'updated_count': updated_count,
-                'failed_count': failed_count,
-                'total_count': len(stocks),
-                'results': results[:10],  # Показываем только первые 10 результатов
-                'execution_time': round(time.time() - start_time, 2)
-            })
-                
-        except Exception as e:
-            db.session.rollback()
-            logger.error(f"Ошибка массового обновления цен: {e}")
-            return jsonify({
-                'success': False,
-                'error': str(e)
-            }), 500
+                    results.append({'ticker': stock.ticker, 'status': 'failed', 'error': 'No price received'})
+                    logger.warning(f"Не удалось получить цену для {stock.ticker}")
+            except Exception as e:
+                failed_count += 1
+                results.append({'ticker': stock.ticker, 'status': 'error', 'error': str(e)})
+                logger.error(f"Ошибка обновления {stock.ticker}: {e}")
+        db.session.commit()
+        return jsonify({'success': True, 'message': f'Обновлено: {updated_count} акций, ошибок: {failed_count}, всего: {len(stocks)}', 'updated_count': updated_count, 'failed_count': failed_count, 'total_count': len(stocks), 'results': results[:10], 'execution_time': round(time.time() - start_time, 2)})
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Ошибка массового обновления цен: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
-    @app.route('/admin/sync-bonds')
-    def sync_bonds():
-        """Синхронизация облигаций с MOEX API"""
-        try:
-            from stock_api import stock_api_service
-            result = stock_api_service.sync_bonds_to_database()
-            if result and result.get('success'):
-                return jsonify({
-                    'status': 'success',
-                    'message': f"Синхронизация облигаций завершена. Добавлено: {result['added']}, обновлено: {result['updated']}, всего бумаг: {result['total']}"
-                })
-            else:
-                error_msg = result.get('error', 'Неизвестная ошибка') if result else 'Не удалось получить результат'
-                return jsonify({'status': 'error', 'message': f'Ошибка синхронизации облигаций: {error_msg}'}), 500
-        except Exception as e:
-            return jsonify({'status': 'error', 'message': f'Ошибка синхронизации облигаций: {str(e)}'}), 500
+def sync_bonds():
+    """Синхронизация облигаций с MOEX API"""
+    try:
+        from stock_api import stock_api_service
+        result = stock_api_service.sync_bonds_to_database()
+        if result and result.get('success'):
+            return jsonify({'status': 'success', 'message': f"Синхронизация облигаций завершена. Добавлено: {result['added']}, обновлено: {result['updated']}, всего бумаг: {result['total']}"})
+        else:
+            error_msg = result.get('error', 'Неизвестная ошибка') if result else 'Не удалось получить результат'
+            return jsonify({'status': 'error', 'message': f'Ошибка синхронизации облигаций: {error_msg}'}), 500
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': f'Ошибка синхронизации облигаций: {str(e)}'}), 500
 
 # Вспомогательные функции (вне init_routes)
 def get_sector_by_ticker(ticker):

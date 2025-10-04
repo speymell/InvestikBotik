@@ -6,14 +6,22 @@
         <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
             <h2 class="mb-0">Инвестиции</h2>
             
-            <!-- Переключатель Акции/Crypto -->
-            <div class="market-switcher">
-                <button class="market-btn active" id="stocksBtn" onclick="switchMarket('stocks')">
-                    <i class="fas fa-chart-line me-2"></i>Акции
-                </button>
-                <button class="market-btn" id="cryptoBtn" onclick="switchMarket('crypto')">
-                    <i class="fas fa-rocket me-2"></i>Crypto
-                </button>
+            <div class="d-flex align-items-center gap-2">
+                <!-- Фильтр Акции/Облигации -->
+                <div class="btn-group" role="group" aria-label="Тип инструмента">
+                    <a href="{{ url_for('stocks', type='share', search=search) }}" class="btn btn-outline-primary {% if request.args.get('type', 'share') == 'share' %}active{% endif %}">Акции</a>
+                    <a href="{{ url_for('stocks', type='bond', search=search) }}" class="btn btn-outline-primary {% if request.args.get('type') == 'bond' %}active{% endif %}">Облигации</a>
+                </div>
+                
+                <!-- Переключатель Акции/Crypto -->
+                <div class="market-switcher">
+                    <button class="market-btn active" id="stocksBtn" onclick="switchMarket('stocks')">
+                        <i class="fas fa-chart-line me-2"></i>Акции
+                    </button>
+                    <button class="market-btn" id="cryptoBtn" onclick="switchMarket('crypto')">
+                        <i class="fas fa-rocket me-2"></i>Crypto
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -44,19 +52,18 @@
                     <table class="table table-hover align-middle">
                         <thead>
                             <tr>
-                                <th style="width: 60px;">Лого</th>
-                                <th style="width: 100px;">Тикер</th>
-                                <th style="width: 150px;">Сектор</th>
-                                <th style="width: 120px;" class="text-end">Цена</th>
+                                <th>Акция</th>
+                                <th style="width: 180px;">Сектор</th>
+                                <th style="width: 140px;" class="text-end">Цена</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for stock in stocks %}
                             <tr data-ticker="{{ stock.ticker }}" onclick="window.location.href='{{ url_for('stock_detail', ticker=stock.ticker) }}'" style="cursor: pointer;">
                                 <td>
-                                    <div class="d-flex align-items-center">
+                                    <div class="d-flex align-items-center gap-2">
                                         <img src="{{ stock.logo_url or ('https://ui-avatars.com/api/?name=' ~ stock.ticker ~ '&background=007bff&color=fff&size=32') }}" 
-                                             alt="{{ stock.ticker }}" class="stock-logo me-2">
+                                             alt="{{ stock.ticker }}" class="stock-logo" style="margin-right: .5rem;">
                                         <div>
                                             <strong>{{ stock.ticker }}</strong><br>
                                             <small class="text-muted">{{ stock.name[:30] }}{% if stock.name|length > 30 %}...{% endif %}</small>
@@ -194,7 +201,7 @@
                     </p>
                     <div class="crypto-features">
                         <div class="crypto-feature">
-                            <i class="fas fa-bitcoin"></i>
+                            <i class="fab fa-bitcoin"></i>
                             <span>Bitcoin</span>
                         </div>
                         <div class="crypto-feature">

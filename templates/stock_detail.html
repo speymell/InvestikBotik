@@ -40,6 +40,21 @@
                         {% endif %}
                     </div>
                 </div>
+
+                <!-- Новости по бумаге -->
+                <div class="mt-4">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0">Новости</h6>
+                            <small class="text-muted">MOEX sitenews</small>
+                        </div>
+                        <div class="card-body p-0">
+                            <ul id="newsList" class="list-group list-group-flush">
+                                <li class="list-group-item text-muted" id="newsEmpty">Загрузка новостей...</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
                 
                 {% if stock.description %}
                 <div class="mb-4">
@@ -72,6 +87,8 @@
                                 <i class="fas fa-wifi"></i> Автообновление
                             </span>
                         </div>
+                    </div>
+                </div>
                 
                 <!-- График цены -->
                 <div class="mt-4">
@@ -178,16 +195,16 @@
             <div class="card-header">
                 <h5>Торговые операции</h5>
             </div>
-            <div class="card-body">
+            <div class="card-body py-3">
                 <div class="d-grid gap-3">
-                    <button class="btn btn-success btn-lg w-100" data-bs-toggle="modal" data-bs-target="#buyModal">
+                    <button class="btn btn-success btn-md w-100" data-bs-toggle="modal" data-bs-target="#buyModal">
                         <i class="fas fa-shopping-cart me-2"></i>Купить сейчас
                     </button>
-                    <button class="btn btn-outline-primary btn-lg w-100" data-bs-toggle="modal" data-bs-target="#historicalBuyModal">
+                    <button class="btn btn-outline-primary btn-md w-100" data-bs-toggle="modal" data-bs-target="#historicalBuyModal">
                         <i class="fas fa-history me-2"></i>Добавить из прошлого
                     </button>
                     {% if user_positions and user_positions.quantity > 0 %}
-                    <button class="btn btn-danger btn-lg w-100" data-bs-toggle="modal" data-bs-target="#sellModal">
+                    <button class="btn btn-danger btn-md w-100" data-bs-toggle="modal" data-bs-target="#sellModal">
                         <i class="fas fa-hand-holding-usd me-2"></i>Продать
                     </button>
                     {% endif %}
@@ -371,6 +388,13 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
 <script>
+// Ширина графика на всю карточку
+document.addEventListener('DOMContentLoaded', function() {
+    const canvas = document.getElementById('priceChart');
+    if (canvas) {
+        canvas.style.width = '100%';
+    }
+});
 // Функция для кнопки "Назад"
 function goBack() {
     // Проверяем, есть ли история браузера
@@ -797,58 +821,59 @@ function resetZoom() {
 chartUpdateInterval = setInterval(updatePrice, 30000);
 
 // Инициализация при загрузке страницы
-document.addEventListener('DOMContentLoaded', function() {
-    initChart();
-    updatePrice();
-    
-    // Загружаем счета для селекта
-    loadAccounts();
-});
+    document.addEventListener('DOMContentLoaded', function() {
+        initChart();
+        updatePrice();
+        loadNews();
+        
+        // Загружаем счета для селекта
+        loadAccounts();
+    });
 
 // Загрузка списка счетов
 function loadAccounts() {
     fetch('/api/accounts')
         .then(response => response.json())
-        .then(data => {
-            if (data.success && data.accounts) {
-                const buySelect = document.getElementById('buyAccountSelect');
-                const sellSelect = document.getElementById('sellAccountSelect');
-                const historicalBuySelect = document.getElementById('historicalBuyAccountSelect');
-                
-                if (buySelect) {
-                    buySelect.innerHTML = '';
-                    data.accounts.forEach(account => {
-                        const option = document.createElement('option');
-                        option.value = account.id;
-                        option.textContent = `${account.name} (${account.balance.toFixed(2)} ₽)`;
-                        buySelect.appendChild(option);
-                    });
-                }
-                
-                if (sellSelect) {
-                    sellSelect.innerHTML = '';
-                    data.accounts.forEach(account => {
-                        const option = document.createElement('option');
-                        option.value = account.id;
-                        option.textContent = `${account.name} (${account.balance.toFixed(2)} ₽)`;
-                        sellSelect.appendChild(option);
-                    });
-                }
-                
-                if (historicalBuySelect) {
-                    historicalBuySelect.innerHTML = '';
-                    data.accounts.forEach(account => {
-                        const option = document.createElement('option');
-                        option.value = account.id;
-                        option.textContent = account.name;
-                        historicalBuySelect.appendChild(option);
-                    });
-                }
-            }
-        })
-        .catch(error => {
-            console.error('Ошибка загрузки счетов:', error);
-        });
+
+// Загрузка новостей по тикеру
+async function loadNews() {
+    try {
+        const resp = await fetch(`/api/news/${ticker}`);
+        const data = await resp.json();
+        const list = document.getElementById('newsList');
+        if (!list) return;
+        list.innerHTML = '';
+        if (data.success && data.items && data.items.length > 0) {
+            data.items.forEach(item => {
+                const li = document.createElement('li');
+                li.className = 'list-group-item';
+                const a = document.createElement('a');
+                a.href = item.url || '#';
+                a.target = '_blank';
+                a.rel = 'noopener';
+                a.textContent = item.title;
+                const small = document.createElement('div');
+                small.className = 'text-muted small';
+                small.textContent = item.published_at ? new Date(item.published_at).toLocaleString('ru-RU') : '';
+                li.appendChild(a);
+                li.appendChild(small);
+                list.appendChild(li);
+            });
+        } else {
+            const li = document.createElement('li');
+            li.className = 'list-group-item text-muted';
+            li.textContent = 'Нет новостей';
+            list.appendChild(li);
+        }
+    } catch (e) {
+        const list = document.getElementById('newsList');
+        if (list) {
+            const li = document.createElement('li');
+            li.className = 'list-group-item text-muted';
+            li.textContent = 'Не удалось загрузить новости';
+            list.appendChild(li);
+        }
+    }
 }
 
 // Автоматический расчет общей стоимости для исторической покупки
