@@ -636,10 +636,6 @@ class StockAPIService:
         except Exception as e:
             logger.error(f"Общая ошибка получения цены облигации {ticker}: {e}")
             return None
-            
-        except Exception as e:
-            logger.error(f"Общая ошибка получения цены {ticker}: {e}")
-            return None
     
     def _extract_price_from_data(self, data, ticker, board):
         """Извлекает цену из данных MOEX API"""
