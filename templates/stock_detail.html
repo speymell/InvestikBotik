@@ -22,7 +22,7 @@
 </div>
 
 <div class="row">
-    <div class="col-md-8">
+    <div class="col-lg-9 col-md-8">
         <div class="card">
             <div class="card-body">
                 <div class="d-flex align-items-center mb-4">
@@ -89,8 +89,8 @@
                             </button>
                         </div>
                     </div>
-                    <div class="position-relative">
-                        <canvas id="priceChart" style="max-height: 400px; width: 100%; height: 300px;"></canvas>
+                    <div class="position-relative chart-container">
+                        <canvas id="priceChart"></canvas>
                         <div id="chartLoading" class="position-absolute top-50 start-50 translate-middle d-none">
                             <div class="spinner-border text-primary" role="status">
                                 <span class="visually-hidden">Загрузка...</span>
@@ -172,22 +172,22 @@
         </div>
     </div>
     
-    <div class="col-md-4">
-        {% if session.user_id %}
+    <div class="col-lg-3 col-md-4">
+        {% if session.get('user_id') %}
         <div class="card">
             <div class="card-header">
                 <h5>Торговые операции</h5>
             </div>
             <div class="card-body">
-                <div class="d-grid gap-2">
-                    <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#buyModal">
+                <div class="d-grid gap-3">
+                    <button class="btn btn-success btn-lg w-100" data-bs-toggle="modal" data-bs-target="#buyModal">
                         <i class="fas fa-shopping-cart me-2"></i>Купить сейчас
                     </button>
-                    <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#historicalBuyModal">
+                    <button class="btn btn-outline-primary btn-lg w-100" data-bs-toggle="modal" data-bs-target="#historicalBuyModal">
                         <i class="fas fa-history me-2"></i>Добавить из прошлого
                     </button>
                     {% if user_positions and user_positions.quantity > 0 %}
-                    <button class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#sellModal">
+                    <button class="btn btn-danger btn-lg w-100" data-bs-toggle="modal" data-bs-target="#sellModal">
                         <i class="fas fa-hand-holding-usd me-2"></i>Продать
                     </button>
                     {% endif %}
@@ -343,6 +343,16 @@
 }
 
 /* Улучшенные стили для мобильной статистики */
+/* Высота контейнера графика для разных экранов */
+.chart-container {
+    height: 420px;
+}
+@media (min-width: 1400px) {
+    .chart-container { height: 520px; }
+}
+@media (max-width: 991.98px) {
+    .chart-container { height: 360px; }
+}
 @media (max-width: 767.98px) {
     .card-body.p-2 {
         padding: 0.75rem !important;
@@ -373,8 +383,9 @@ function goBack() {
 }
 </script>
 <script>
-let stockPrice = {{ stock.price }};
-const ticker = '{{ stock.ticker }}';
+let stockPrice = {{ (stock.price or 0)|tojson }};
+const ticker = {{ stock.ticker|tojson }};
+const STOCK_ID = {{ stock.id|tojson }};
 let priceChart = null;
 let priceHistory = [];
 let currentTimeframe = '1D';
@@ -491,7 +502,7 @@ async function initChart() {
         },
         options: {
             responsive: true,
-            maintainAspectRatio: true,
+            maintainAspectRatio: false,
             interaction: {
                 intersect: false,
                 mode: 'index'
@@ -830,8 +841,10 @@ function updateHistoricalTotalCost() {
     document.getElementById('historicalTotalCost').textContent = totalCost.toFixed(2) + ' ₽';
 }
 
-document.getElementById('historicalBuyQuantity')?.addEventListener('input', updateHistoricalTotalCost);
-document.getElementById('historicalBuyPrice')?.addEventListener('input', updateHistoricalTotalCost);
+var _hbq = document.getElementById('historicalBuyQuantity');
+if (_hbq) { _hbq.addEventListener('input', updateHistoricalTotalCost); }
+var _hbp = document.getElementById('historicalBuyPrice');
+if (_hbp) { _hbp.addEventListener('input', updateHistoricalTotalCost); }
 
 // Добавление исторической покупки
 function submitHistoricalBuy() {
@@ -857,7 +870,7 @@ function submitHistoricalBuy() {
         },
         body: JSON.stringify({
             account_id: accountId,
-            stock_id: {{ stock.id }},
+            stock_id: STOCK_ID,
             quantity: parseInt(quantity),
             price: parseFloat(price),
             purchase_date: purchaseDate
@@ -885,18 +898,24 @@ window.addEventListener('beforeunload', function() {
 });
 
 // Обновление общей стоимости при покупке
-document.getElementById('buyQuantity')?.addEventListener('input', function() {
-    const quantity = this.value;
-    const totalCost = quantity * stockPrice;
-    document.getElementById('totalCost').textContent = totalCost.toFixed(2) + ' ₽';
-});
+var _bq = document.getElementById('buyQuantity');
+if (_bq) {
+    _bq.addEventListener('input', function() {
+        const quantity = this.value;
+        const totalCost = quantity * stockPrice;
+        document.getElementById('totalCost').textContent = totalCost.toFixed(2) + ' ₽';
+    });
+}
 
 // Обновление общей суммы при продаже
-document.getElementById('sellQuantity')?.addEventListener('input', function() {
-    const quantity = this.value;
-    const totalRevenue = quantity * stockPrice;
-    document.getElementById('totalRevenue').textContent = totalRevenue.toFixed(2) + ' ₽';
-});
+var _sq = document.getElementById('sellQuantity');
+if (_sq) {
+    _sq.addEventListener('input', function() {
+        const quantity = this.value;
+        const totalRevenue = quantity * stockPrice;
+        document.getElementById('totalRevenue').textContent = totalRevenue.toFixed(2) + ' ₽';
+    });
+}
 
 function submitBuy() {
     const accountId = document.getElementById('buyAccountSelect').value;
@@ -914,7 +933,7 @@ function submitBuy() {
         },
         body: JSON.stringify({
             account_id: accountId,
-            stock_id: {{ stock.id }},
+            stock_id: STOCK_ID,
             quantity: parseInt(quantity)
         })
     })

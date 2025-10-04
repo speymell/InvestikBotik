@@ -1,5 +1,10 @@
 /* Дополнительные стили для InvestBot */
 
+.no-horizontal-scroll,
+html, body {
+    overflow-x: hidden;
+}
+
 .profit-positive {
     color: #28a745 !important;
 }
@@ -1141,8 +1146,8 @@ footer {
     margin-bottom: 1rem;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
     background-clip: text;
+    -webkit-text-fill-color: transparent;
     text-shadow: 0 0 30px rgba(102, 126, 234, 0.5);
 }
 
@@ -1196,6 +1201,12 @@ footer {
     font-size: 1rem;
     font-weight: 500;
     color: #e2e8f0;
+}
+
+/* Mobile tuning for crypto section to avoid horizontal scroll */
+@media (max-width: 576px) {
+    .crypto-content { padding: 1.5rem 1rem; }
+    .crypto-features { gap: 1.25rem; }
 }
 
 /* Темная тема для breadcrumb */

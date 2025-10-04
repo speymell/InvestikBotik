@@ -615,6 +615,10 @@ class StockAPIService:
             logger.error(f"Не удалось получить цену {ticker} ни с одной площадки")
             return None
 
+        except Exception as e:
+            logger.error(f"Общая ошибка получения цены {ticker}: {e}")
+            return None
+
     def _get_bond_price(self, ticker, face_value=None, timeout=10):
         """Получает текущую цену облигации (в рублях, переводя из % от номинала)"""
         try:
