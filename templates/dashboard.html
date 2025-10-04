@@ -113,7 +113,7 @@
                         <strong class="compact-stat-inline-value">{{ "{:,.0f}".format(portfolio_stats.total_current_value) }} ₽</strong>
                     </div>
                     <div class="compact-stat-inline">
-                        <i class="fas fa-{% if portfolio_stats.total_profit_loss >= 0 %}trending-up text-success{% else %}trending-down text-danger{% endif %} me-2"></i>
+                        <i class="fas {% if portfolio_stats.total_profit_loss >= 0 %}fa-arrow-up text-success{% else %}fa-arrow-down text-danger{% endif %} me-2"></i>
                         <span class="compact-stat-inline-label">Прибыль:</span>
                         <strong class="compact-stat-inline-value {% if portfolio_stats.total_profit_loss >= 0 %}text-success{% else %}text-danger{% endif %}">
                             {% if portfolio_stats.total_profit_loss >= 0 %}+{% endif %}{{ "{:,.0f}".format(portfolio_stats.total_profit_loss) }} ₽

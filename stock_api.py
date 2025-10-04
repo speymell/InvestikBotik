@@ -91,6 +91,70 @@ class StockAPIService:
         except Exception as e:
             logger.error(f"Ошибка получения акций с MOEX: {e}")
             return self._get_fallback_stocks()
+
+    def get_all_bonds(self):
+        """Получает список всех облигаций с MOEX"""
+        try:
+            # Облигации на рынке bonds
+            url = f"{self.moex_base_url}/engines/stock/markets/bonds/securities.json"
+            params = {
+                'iss.meta': 'off',
+                'iss.only': 'securities',
+                'securities.columns': 'SECID,SHORTNAME,FACEVALUE,PREVPRICE'
+            }
+            response = self.session.get(url, params=params, timeout=30)
+            response.raise_for_status()
+            data = response.json()
+            if 'securities' not in data or 'data' not in data['securities']:
+                logger.error("Неверный формат ответа от MOEX API (bonds)")
+                return []
+            bonds_data = data['securities']['data']
+            columns = data['securities']['columns']
+
+            secid_idx = columns.index('SECID') if 'SECID' in columns else None
+            shortname_idx = columns.index('SHORTNAME') if 'SHORTNAME' in columns else None
+            facevalue_idx = columns.index('FACEVALUE') if 'FACEVALUE' in columns else None
+            prevprice_idx = columns.index('PREVPRICE') if 'PREVPRICE' in columns else None
+
+            bonds = []
+            for row in bonds_data:
+                try:
+                    ticker = row[secid_idx] if secid_idx is not None else None
+                    name = row[shortname_idx] if shortname_idx is not None else ticker
+                    face_value = float(row[facevalue_idx]) if facevalue_idx is not None and row[facevalue_idx] else None
+                    prevprice = None
+                    if prevprice_idx is not None and row[prevprice_idx] not in (None, ''):
+                        try:
+                            prevprice = float(row[prevprice_idx])
+                        except (ValueError, TypeError):
+                            prevprice = None
+
+                    # Цена облигации на MOEX часто в процентах от номинала
+                    price = 0.0
+                    if prevprice and face_value:
+                        price = (prevprice / 100.0) * face_value
+
+                    if ticker and name:
+                        bonds.append({
+                            'ticker': ticker,
+                            'name': name,
+                            'price': price,
+                            'sector': 'Облигации',
+                            'description': f"Российская облигация {name}",
+                            'logo_url': self._get_logo_url(ticker),
+                            'instrument_type': 'bond',
+                            'face_value': face_value
+                        })
+                except Exception as e:
+                    logger.warning(f"Ошибка обработки облигации: {e}")
+                    continue
+
+            logger.info(f"Получено {len(bonds)} облигаций с MOEX")
+            return bonds
+
+        except Exception as e:
+            logger.error(f"Ошибка получения облигаций с MOEX: {e}")
+            return []
     
     def _get_sector_by_ticker(self, ticker):
         """Определяет сектор по тикеру (упрощенная логика)"""
@@ -362,23 +426,21 @@ class StockAPIService:
         try:
             # Получаем список тикеров из базы
             existing_stocks = Stock.query.all()
-            tickers = [stock.ticker for stock in existing_stocks]
-            
-            if not tickers:
+            if not existing_stocks:
                 return False
-            
-            # Получаем актуальные цены
+
             updated_count = 0
-            for ticker in tickers:
+            for stock in existing_stocks:
                 try:
-                    price = self._get_stock_price(ticker)
+                    if getattr(stock, 'instrument_type', 'share') == 'bond':
+                        price = self._get_bond_price(stock.ticker, getattr(stock, 'face_value', None))
+                    else:
+                        price = self._get_stock_price(stock.ticker)
                     if price and price > 0:
-                        stock = Stock.query.filter_by(ticker=ticker).first()
-                        if stock:
-                            stock.price = price
-                            updated_count += 1
+                        stock.price = price
+                        updated_count += 1
                 except Exception as e:
-                    logger.warning(f"Ошибка обновления цены для {ticker}: {e}")
+                    logger.warning(f"Ошибка обновления цены для {stock.ticker}: {e}")
                     continue
             
             db.session.commit()
@@ -471,6 +533,59 @@ class StockAPIService:
             logger.error(f"Ошибка получения массовых цен: {e}")
             return {}
 
+    def get_multiple_bond_prices(self, tickers, face_values_map=None, timeout=10):
+        """Получает цены нескольких облигаций одним запросом (в рублях)
+        face_values_map: dict[ticker] -> face_value
+        """
+        try:
+            if len(tickers) > 20:
+                all_prices = {}
+                for i in range(0, len(tickers), 20):
+                    batch = tickers[i:i+20]
+                    batch_prices = self.get_multiple_bond_prices(batch, face_values_map, timeout)
+                    all_prices.update(batch_prices)
+                return all_prices
+
+            boards = ['TQCB', 'TQOB', 'TQIR']
+            prices = {}
+            for board in boards:
+                if len(prices) == len(tickers):
+                    break
+                try:
+                    tickers_str = ','.join(tickers)
+                    url = f"{self.moex_base_url}/engines/stock/markets/bonds/boards/{board}/securities.json?securities={tickers_str}"
+                    response = self.session.get(url, timeout=timeout)
+                    response.raise_for_status()
+                    data = response.json()
+
+                    if ('marketdata' in data and 'data' in data['marketdata'] and len(data['marketdata']['data']) > 0):
+                        columns = data['marketdata']['columns']
+                        secid_idx = columns.index('SECID') if 'SECID' in columns else None
+                        last_idx = columns.index('LAST') if 'LAST' in columns else None
+                        close_idx = columns.index('CLOSE') if 'CLOSE' in columns else None
+                        open_idx = columns.index('OPEN') if 'OPEN' in columns else None
+                        for row in data['marketdata']['data']:
+                            if secid_idx is not None and row[secid_idx] in tickers and row[secid_idx] not in prices:
+                                t = row[secid_idx]
+                                raw = None
+                                if last_idx is not None and row[last_idx] is not None:
+                                    raw = float(row[last_idx])
+                                elif close_idx is not None and row[close_idx] is not None:
+                                    raw = float(row[close_idx])
+                                elif open_idx is not None and row[open_idx] is not None:
+                                    raw = float(row[open_idx])
+                                if raw is not None:
+                                    fv = (face_values_map or {}).get(t)
+                                    price_rub = (raw / 100.0 * fv) if fv else raw
+                                    prices[t] = price_rub
+                except Exception as e:
+                    logger.warning(f"Ошибка получения данных облигаций с площадки {board}: {e}")
+                    continue
+            return prices
+        except Exception as e:
+            logger.error(f"Ошибка получения массовых цен облигаций: {e}")
+            return {}
+
     def _get_stock_price(self, ticker, timeout=10):
         """Получает текущую цену акции"""
         try:
@@ -498,6 +613,28 @@ class StockAPIService:
             
             # Если не получилось ни с одной площадки
             logger.error(f"Не удалось получить цену {ticker} ни с одной площадки")
+            return None
+
+    def _get_bond_price(self, ticker, face_value=None, timeout=10):
+        """Получает текущую цену облигации (в рублях, переводя из % от номинала)"""
+        try:
+            boards = ['TQCB', 'TQOB', 'TQIR']
+            for board in boards:
+                try:
+                    url = f"{self.moex_base_url}/engines/stock/markets/bonds/boards/{board}/securities/{ticker}.json"
+                    response = self.session.get(url, timeout=timeout)
+                    response.raise_for_status()
+                    data = response.json()
+                    price = self._extract_bond_price_from_data(data, ticker, board, face_value)
+                    if price and price > 0:
+                        return price
+                except Exception as e:
+                    logger.warning(f"Ошибка получения {ticker} (bond) с площадки {board}: {e}")
+                    continue
+            logger.error(f"Не удалось получить цену облигации {ticker} ни с одной площадки")
+            return None
+        except Exception as e:
+            logger.error(f"Общая ошибка получения цены облигации {ticker}: {e}")
             return None
             
         except Exception as e:
@@ -615,6 +752,57 @@ class StockAPIService:
             
         except Exception as e:
             logger.error(f"Ошибка синхронизации акций: {e}")
+            db.session.rollback()
+            return {'success': False, 'error': str(e)}
+
+    def sync_bonds_to_database(self):
+        """Синхронизирует облигации с базой данных"""
+        try:
+            bonds_data = self.get_all_bonds()
+            if not bonds_data:
+                logger.error("Не удалось получить данные об облигациях")
+                return {'success': False, 'error': 'no_data'}
+
+            added_count = 0
+            updated_count = 0
+            for bond in bonds_data:
+                try:
+                    existing = Stock.query.filter_by(ticker=bond['ticker']).first()
+                    if existing:
+                        existing.name = bond['name']
+                        existing.price = bond['price']
+                        existing.sector = bond['sector']
+                        existing.description = bond.get('description') or existing.description
+                        existing.logo_url = bond.get('logo_url') or existing.logo_url
+                        # Новые поля
+                        if hasattr(existing, 'instrument_type'):
+                            existing.instrument_type = 'bond'
+                        if hasattr(existing, 'face_value'):
+                            existing.face_value = bond.get('face_value')
+                        updated_count += 1
+                    else:
+                        new_sec = Stock(
+                            ticker=bond['ticker'],
+                            name=bond['name'],
+                            price=bond['price'],
+                            sector=bond['sector'],
+                            description=bond.get('description', ''),
+                            logo_url=bond.get('logo_url', ''),
+                            instrument_type='bond',
+                            face_value=bond.get('face_value')
+                        )
+                        db.session.add(new_sec)
+                        added_count += 1
+                except Exception as e:
+                    logger.warning(f"Ошибка обработки облигации {bond.get('ticker', 'unknown')}: {e}")
+                    continue
+
+            db.session.commit()
+            total = Stock.query.count()
+            logger.info(f"Синхронизация облигаций завершена. Добавлено: {added_count}, обновлено: {updated_count}, всего бумаг: {total}")
+            return {'success': True, 'added': added_count, 'updated': updated_count, 'total': total}
+        except Exception as e:
+            logger.error(f"Ошибка синхронизации облигаций: {e}")
             db.session.rollback()
             return {'success': False, 'error': str(e)}
 

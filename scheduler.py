@@ -53,14 +53,18 @@ class StockScheduler:
                 
                 # Синхронизируем список акций каждые 6 часов
                 if current_time - last_sync_update > 21600:  # 6 часов
-                    logger.info("Запуск синхронизации акций...")
+                    logger.info("Запуск синхронизации акций и облигаций...")
                     try:
                         result = stock_api_service.sync_stocks_to_database()
                         if result['success']:
                             logger.info(f"Синхронизация завершена: добавлено {result['added']}, обновлено {result['updated']}")
+                        # Синхронизация облигаций
+                        bonds_result = stock_api_service.sync_bonds_to_database()
+                        if bonds_result and bonds_result.get('success'):
+                            logger.info(f"Синхронизация облигаций завершена: добавлено {bonds_result['added']}, обновлено {bonds_result['updated']}")
                         last_sync_update = current_time
                     except Exception as e:
-                        logger.error(f"Ошибка синхронизации акций: {e}")
+                        logger.error(f"Ошибка синхронизации бумаг: {e}")
                 
                 # Спим 30 секунд перед следующей проверкой
                 time.sleep(30)

@@ -23,6 +23,8 @@ class Stock(db.Model):
     logo_url = db.Column(db.String(255), nullable=True)
     sector = db.Column(db.String(100), nullable=True)
     description = db.Column(db.Text, nullable=True)
+    instrument_type = db.Column(db.String(20), nullable=False, default='share')
+    face_value = db.Column(db.Float, nullable=True)
 
 class Transaction(db.Model):
     id = db.Column(db.Integer, primary_key=True)

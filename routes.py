@@ -57,8 +57,11 @@ def init_routes(app):
             
             for stock in stocks:
                 try:
-                    # Получаем актуальную цену с MOEX
-                    price = stock_api_service._get_stock_price(stock.ticker)
+                    # Получаем актуальную цену с MOEX (учитываем тип инструмента)
+                    if getattr(stock, 'instrument_type', 'share') == 'bond':
+                        price = stock_api_service._get_bond_price(stock.ticker, getattr(stock, 'face_value', None))
+                    else:
+                        price = stock_api_service._get_stock_price(stock.ticker)
                     if price and price > 0:
                         old_price = stock.price
                         stock.price = price
@@ -218,6 +221,24 @@ def init_routes(app):
                         db.session.rollback()
                         if "already exists" not in str(e).lower():
                             print(f"Error adding description: {e}")
+                    
+                    # Добавляем instrument_type
+                    try:
+                        db.session.execute(db.text("ALTER TABLE stock ADD COLUMN instrument_type VARCHAR(20) DEFAULT 'share'"))
+                        db.session.commit()
+                    except Exception as e:
+                        db.session.rollback()
+                        if "already exists" not in str(e).lower():
+                            print(f"Error adding instrument_type: {e}")
+                    
+                    # Добавляем face_value
+                    try:
+                        db.session.execute(db.text("ALTER TABLE stock ADD COLUMN face_value FLOAT"))
+                        db.session.commit()
+                    except Exception as e:
+                        db.session.rollback()
+                        if "already exists" not in str(e).lower():
+                            print(f"Error adding face_value: {e}")
                     
                     # Обновляем существующие записи
                     stocks_to_update = [
@@ -458,6 +479,8 @@ def init_routes(app):
                 try:
                     from stock_api import stock_api_service
                     stock_api_service.sync_stocks_to_database()
+                    # Параллельно синхронизируем облигации (не критично при ошибке)
+                    stock_api_service.sync_bonds_to_database()
                 except Exception:
                     pass  # Игнорируем ошибки синхронизации
             
@@ -1062,12 +1085,16 @@ def init_routes(app):
         try:
             from stock_api import stock_api_service
             
-            # Используем сервис для получения цены
-            current_price = stock_api_service._get_stock_price(ticker)
+            # Определяем тип инструмента
+            stock = Stock.query.filter_by(ticker=ticker).first()
+            current_price = None
+            if stock and getattr(stock, 'instrument_type', 'share') == 'bond':
+                current_price = stock_api_service._get_bond_price(ticker, getattr(stock, 'face_value', None))
+            else:
+                current_price = stock_api_service._get_stock_price(ticker)
             
             if current_price and current_price > 0:
                 # Обновляем цену в базе данных
-                stock = Stock.query.filter_by(ticker=ticker).first()
                 if stock:
                     stock.price = current_price
                     db.session.commit()
@@ -1080,7 +1107,6 @@ def init_routes(app):
                 })
             
             # Если не удалось получить цену через API, возвращаем из БД
-            stock = Stock.query.filter_by(ticker=ticker).first()
             if stock and stock.price:
                 return jsonify({
                     'success': True,
@@ -1122,9 +1148,16 @@ def init_routes(app):
             results = []
             start_time = time.time()
             
-            # Получаем все цены одним запросом
-            tickers_list = [stock.ticker for stock in stocks]
-            prices = stock_api_service.get_multiple_stock_prices(tickers_list, timeout=10)
+            # Разделяем акции и облигации
+            share_tickers = [s.ticker for s in stocks if getattr(s, 'instrument_type', 'share') == 'share']
+            bond_tickers = [s.ticker for s in stocks if getattr(s, 'instrument_type', 'share') == 'bond']
+            face_values_map = {s.ticker: getattr(s, 'face_value', None) for s in stocks if getattr(s, 'instrument_type', 'share') == 'bond'}
+            
+            prices = {}
+            if share_tickers:
+                prices.update(stock_api_service.get_multiple_stock_prices(share_tickers, timeout=10))
+            if bond_tickers:
+                prices.update(stock_api_service.get_multiple_bond_prices(bond_tickers, face_values_map=face_values_map, timeout=10))
             
             # Обновляем цены в базе данных
             for stock in stocks:
@@ -1177,6 +1210,23 @@ def init_routes(app):
                 'success': False,
                 'error': str(e)
             }), 500
+
+    @app.route('/admin/sync-bonds')
+    def sync_bonds():
+        """Синхронизация облигаций с MOEX API"""
+        try:
+            from stock_api import stock_api_service
+            result = stock_api_service.sync_bonds_to_database()
+            if result and result.get('success'):
+                return jsonify({
+                    'status': 'success',
+                    'message': f"Синхронизация облигаций завершена. Добавлено: {result['added']}, обновлено: {result['updated']}, всего бумаг: {result['total']}"
+                })
+            else:
+                error_msg = result.get('error', 'Неизвестная ошибка') if result else 'Не удалось получить результат'
+                return jsonify({'status': 'error', 'message': f'Ошибка синхронизации облигаций: {error_msg}'}), 500
+        except Exception as e:
+            return jsonify({'status': 'error', 'message': f'Ошибка синхронизации облигаций: {str(e)}'}), 500
 
 # Вспомогательные функции (вне init_routes)
 def get_sector_by_ticker(ticker):
