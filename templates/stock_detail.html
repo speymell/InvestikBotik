@@ -41,20 +41,7 @@
                     </div>
                 </div>
 
-                <!-- Новости по бумаге -->
-                <div class="mt-4">
-                    <div class="card">
-                        <div class="card-header d-flex justify-content-between align-items-center">
-                            <h6 class="mb-0">Новости</h6>
-                            <small class="text-muted">MOEX sitenews</small>
-                        </div>
-                        <div class="card-body p-0">
-                            <ul id="newsList" class="list-group list-group-flush">
-                                <li class="list-group-item text-muted" id="newsEmpty">Загрузка новостей...</li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
+                <!-- Новости перенесены в правую колонку -->
                 
                 {% if stock.description %}
                 <div class="mb-4">
@@ -96,10 +83,10 @@
                         <h6 class="mb-0">График изменения цены</h6>
                         <div class="d-flex gap-1 flex-wrap" style="flex-shrink: 0;">
                             <div class="btn-group btn-group-sm" role="group" aria-label="Таймфрейм">
-                                <button type="button" class="btn btn-outline-primary active" onclick="changeTimeframe('1D')" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">1Д</button>
-                                <button type="button" class="btn btn-outline-primary" onclick="changeTimeframe('1W')" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">1Н</button>
-                                <button type="button" class="btn btn-outline-primary" onclick="changeTimeframe('1M')" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">1М</button>
-                                <button type="button" class="btn btn-outline-primary" onclick="changeTimeframe('3M')" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">3М</button>
+                                <button type="button" class="btn btn-outline-primary active" onclick="changeTimeframe('1D', this)" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">1Д</button>
+                                <button type="button" class="btn btn-outline-primary" onclick="changeTimeframe('1W', this)" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">1Н</button>
+                                <button type="button" class="btn btn-outline-primary" onclick="changeTimeframe('1M', this)" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">1М</button>
+                                <button type="button" class="btn btn-outline-primary" onclick="changeTimeframe('3M', this)" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">3М</button>
                             </div>
                             <button type="button" class="btn btn-outline-secondary btn-sm" onclick="resetZoom()" title="Сбросить масштаб" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">
                                 <i class="fas fa-undo"></i>
@@ -190,6 +177,22 @@
     </div>
     
     <div class="col-lg-3 col-md-4">
+        <!-- Новости по бумаге (в сайдбаре) -->
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h6 class="mb-0"><i class="fas fa-newspaper me-1"></i>Новости</h6>
+                <small class="text-muted">MOEX</small>
+            </div>
+            <div class="card-body p-0">
+                <ul id="newsList" class="list-group list-group-flush">
+                    <li class="list-group-item" id="newsSkeleton">
+                        <div class="news-skeleton-line w-75 mb-1"></div>
+                        <div class="news-skeleton-line w-50"></div>
+                    </li>
+                </ul>
+                <div id="newsEmpty" class="text-center text-muted py-3 d-none">Нет свежих новостей</div>
+            </div>
+        </div>
         {% if session.get('user_id') %}
         <div class="card">
             <div class="card-header">
@@ -388,11 +391,18 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
 <script>
-// Ширина графика на всю карточку
 document.addEventListener('DOMContentLoaded', function() {
     const canvas = document.getElementById('priceChart');
-    if (canvas) {
-        canvas.style.width = '100%';
+    if (canvas) { canvas.style.width = '100%'; }
+    // Register zoom plugin if available
+    try { if (window.Chart && window.Chart.register && window.ChartZoom) { window.Chart.register(window.ChartZoom); } } catch (e) { console.warn('Chart zoom register error', e); }
+    // Init chart and news
+    if (typeof initChart === 'function') initChart();
+    if (typeof loadNews === 'function') loadNews();
+    // Auto-update price every 2 minutes
+    if (typeof updatePrice === 'function') {
+        if (window.priceUpdater) clearInterval(window.priceUpdater);
+        window.priceUpdater = setInterval(updatePrice, 120000);
     }
 });
 // Функция для кнопки "Назад"
@@ -407,9 +417,9 @@ function goBack() {
 }
 </script>
 <script>
-let stockPrice = {{ (stock.price or 0)|tojson }};
-const ticker = {{ stock.ticker|tojson }};
-const STOCK_ID = {{ stock.id|tojson }};
+let stockPrice = Number("{{ stock.price or 0 }}");
+const ticker = "{{ stock.ticker }}";
+const STOCK_ID = Number("{{ stock.id }}");
 let priceChart = null;
 let priceHistory = [];
 let currentTimeframe = '1D';
@@ -423,10 +433,10 @@ function seededRandom(seed) {
 
 // Генерация детерминированного seed на основе тикера и даты
 function getChartSeed() {
-    const ticker = '{{ stock.ticker }}';
+    const seedTicker = "{{ stock.ticker }}";
     const today = new Date().toDateString(); // Меняется только раз в день
     let hash = 0;
-    const str = ticker + today;
+    const str = seedTicker + today;
     for (let i = 0; i < str.length; i++) {
         hash = ((hash << 5) - hash) + str.charCodeAt(i);
         hash = hash & hash;
@@ -672,14 +682,11 @@ async function updatePrice() {
 }
 
 // Функция смены таймфрейма
-async function changeTimeframe(timeframe) {
+async function changeTimeframe(timeframe, btnEl) {
     currentTimeframe = timeframe;
-    
-    // Обновляем активную кнопку
-    document.querySelectorAll('.btn-group button').forEach(btn => {
-        btn.classList.remove('active');
-    });
-    event.target.classList.add('active');
+    // Обновляем активную кнопку (только в группе таймфрейма)
+    document.querySelectorAll('.btn-group[aria-label="Таймфрейм"] button').forEach(b => b.classList.remove('active'));
+    if (btnEl) btnEl.classList.add('active');
     
     // Показываем загрузку
     document.getElementById('chartLoading').classList.remove('d-none');
@@ -817,63 +824,31 @@ function resetZoom() {
     }
 }
 
-// Автоматическое обновление цены каждые 30 секунд
+// Автоматическое обновление цены каждые 30 секунд (дополнительно к 2-минутному)
 chartUpdateInterval = setInterval(updatePrice, 30000);
-
-// Инициализация при загрузке страницы
-    document.addEventListener('DOMContentLoaded', function() {
-        initChart();
-        updatePrice();
-        loadNews();
-        
-        // Загружаем счета для селекта
-        loadAccounts();
-    });
 
 // Загрузка списка счетов
 function loadAccounts() {
     fetch('/api/accounts')
         .then(response => response.json())
-
-// Загрузка новостей по тикеру
-async function loadNews() {
-    try {
-        const resp = await fetch(`/api/news/${ticker}`);
-        const data = await resp.json();
-        const list = document.getElementById('newsList');
-        if (!list) return;
-        list.innerHTML = '';
-        if (data.success && data.items && data.items.length > 0) {
-            data.items.forEach(item => {
-                const li = document.createElement('li');
-                li.className = 'list-group-item';
-                const a = document.createElement('a');
-                a.href = item.url || '#';
-                a.target = '_blank';
-                a.rel = 'noopener';
-                a.textContent = item.title;
-                const small = document.createElement('div');
-                small.className = 'text-muted small';
-                small.textContent = item.published_at ? new Date(item.published_at).toLocaleString('ru-RU') : '';
-                li.appendChild(a);
-                li.appendChild(small);
-                list.appendChild(li);
-            });
-        } else {
-            const li = document.createElement('li');
-            li.className = 'list-group-item text-muted';
-            li.textContent = 'Нет новостей';
-            list.appendChild(li);
-        }
-    } catch (e) {
-        const list = document.getElementById('newsList');
-        if (list) {
-            const li = document.createElement('li');
-            li.className = 'list-group-item text-muted';
-            li.textContent = 'Не удалось загрузить новости';
-            list.appendChild(li);
-        }
-    }
+        .then(data => {
+            if (!data || !data.success || !Array.isArray(data.accounts)) return;
+            const buySel = document.getElementById('buyAccountSelect');
+            const sellSel = document.getElementById('sellAccountSelect');
+            const histSel = document.getElementById('historicalBuyAccountSelect');
+            const fill = (sel) => {
+                if (!sel) return;
+                sel.innerHTML = '';
+                data.accounts.forEach(acc => {
+                    const opt = document.createElement('option');
+                    opt.value = acc.id;
+                    opt.textContent = `${acc.name} (${(acc.balance||0).toFixed ? acc.balance.toFixed(2) : acc.balance} ₽)`;
+                    sel.appendChild(opt);
+                });
+            };
+            fill(buySel); fill(sellSel); fill(histSel);
+        })
+        .catch(() => {});
 }
 
 // Автоматический расчет общей стоимости для исторической покупки
@@ -1010,7 +985,7 @@ function submitSell() {
         },
         body: JSON.stringify({
             account_id: accountId,
-            stock_id: {{ stock.id }},
+            stock_id: STOCK_ID,
             quantity: parseInt(quantity)
         })
     })

@@ -673,15 +673,24 @@ def init_routes(app):
 
     @app.route('/account/<int:account_id>')
     def account_detail(account_id):
-        """Страница деталей счета (временная заглушка)"""
+        """Страница деталей счета"""
         if 'user_id' not in session:
             return redirect(url_for('login'))
         # Проверяем, что счет принадлежит пользователю
         acc = Account.query.filter_by(id=account_id, user_id=session['user_id']).first()
         if not acc:
             return redirect(url_for('dashboard'))
-        # Пока перенаправляем обратно на дашборд
-        return redirect(url_for('dashboard'))
+        # Загружаем транзакции счета (последние сверху)
+        transactions = Transaction.query.filter_by(account_id=acc.id).order_by(Transaction.timestamp.desc()).all()
+        # Гарантируем наличие timestamp
+        try:
+            import datetime as _dt
+            for t in transactions:
+                if not getattr(t, 'timestamp', None):
+                    t.timestamp = _dt.datetime.now()
+        except Exception:
+            pass
+        return render_template('account_detail.html', account=acc, transactions=transactions)
 
     @app.route('/stocks')
     def stocks():
@@ -690,6 +699,39 @@ def init_routes(app):
         search = request.args.get('search', '')
         ins_type = request.args.get('type', 'share')
         sort = request.args.get('sort', 'price_desc')
+
+        # Безопасная авто-миграция нужных колонок (если пользователь зашел сразу на /stocks)
+        try:
+            dialect = ''
+            try:
+                bind = db.session.get_bind() if hasattr(db.session, 'get_bind') else db.session.bind
+                dialect = bind.dialect.name if bind is not None else ''
+            except Exception:
+                pass
+            if dialect.startswith('postgres'):
+                db.session.execute(db.text("ALTER TABLE stock ADD COLUMN IF NOT EXISTS instrument_type VARCHAR(20) DEFAULT 'share'"))
+                db.session.execute(db.text("ALTER TABLE stock ADD COLUMN IF NOT EXISTS face_value DOUBLE PRECISION"))
+                db.session.execute(db.text("ALTER TABLE stock ADD COLUMN IF NOT EXISTS turnover DOUBLE PRECISION"))
+                db.session.execute(db.text("ALTER TABLE stock ADD COLUMN IF NOT EXISTS volume BIGINT"))
+                db.session.execute(db.text("ALTER TABLE stock ADD COLUMN IF NOT EXISTS change_pct DOUBLE PRECISION"))
+            else:
+                for stmt in [
+                    "ALTER TABLE stock ADD COLUMN instrument_type VARCHAR(20) DEFAULT 'share'",
+                    "ALTER TABLE stock ADD COLUMN face_value FLOAT",
+                    "ALTER TABLE stock ADD COLUMN turnover FLOAT",
+                    "ALTER TABLE stock ADD COLUMN volume INTEGER",
+                    "ALTER TABLE stock ADD COLUMN change_pct FLOAT",
+                ]:
+                    try:
+                        db.session.execute(db.text(stmt))
+                    except Exception:
+                        db.session.rollback()
+            db.session.commit()
+        except Exception:
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
 
         query = Stock.query
         if search:
@@ -781,7 +823,7 @@ def init_routes(app):
         top_by_turnover = []
         try:
             if ins_type == 'share':
-                top_by_turnover = Stock.query.filter(Stock.turnover != None, Stock.turnover > 0).order_by(Stock.turnover.desc()).limit(6).all()
+                top_by_turnover = Stock.query.filter(Stock.turnover != None, Stock.turnover > 0).order_by(Stock.turnover.desc()).limit(12).all()
         except Exception:
             top_by_turnover = []
 

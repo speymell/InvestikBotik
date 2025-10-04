@@ -5,6 +5,24 @@ html, body {
     overflow-x: hidden;
 }
 
+/* Turnover horizontal carousel */
+.turnover-section .card-header { padding: .5rem .75rem; }
+.turnover-track { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x proximity; padding: 2px 2px 6px; }
+.turnover-track::-webkit-scrollbar { height: 8px; }
+.turnover-track::-webkit-scrollbar-thumb { background: rgba(0,0,0,.15); border-radius: 8px; }
+[data-theme="dark"] .turnover-track::-webkit-scrollbar-thumb { background: rgba(255,255,255,.2); }
+.turnover-item { flex: 0 0 auto; width: 160px; scroll-snap-align: start; border: 1px solid rgba(0,0,0,.06); border-radius: 12px; padding: 10px; background: #fff; text-decoration: none; color: inherit; box-shadow: 0 1px 3px rgba(0,0,0,.04); transition: transform .15s ease, box-shadow .15s ease; }
+.turnover-item:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,.08); }
+[data-theme="dark"] .turnover-item { background: #2d3748; border-color: rgba(255,255,255,.08); box-shadow: 0 1px 3px rgba(0,0,0,.4); }
+.ti-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.ti-logo { width: 28px; height: 28px; object-fit: contain; border-radius: 6px; }
+.ti-ticker { font-weight: 700; font-size: .95rem; letter-spacing: .3px; }
+.ti-price { font-weight: 600; color: #2563eb; font-size: .95rem; }
+.ti-turnover { font-size: .75rem; color: #6b7280; }
+[data-theme="dark"] .ti-price { color: #90cdf4; }
+[data-theme="dark"] .ti-turnover { color: #a0aec0; }
+.turnover-nav .btn { padding: .15rem .4rem; }
+
 .profit-positive {
     color: #28a745 !important;
 }
@@ -1066,15 +1084,6 @@ footer {
     padding-top: 0.5rem;
 }
 [data-theme="dark"] .sticky-filters { background: #2d3748; }
-
-/* Космическая заглушка для Crypto */
-.crypto-coming-soon {
-    position: relative;
-    min-height: 600px;
-    border-radius: 16px;
-    overflow: hidden;
-    background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
-}
 
 .space-background {
     position: absolute;

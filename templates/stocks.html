@@ -63,31 +63,28 @@
 
     {% if top_by_turnover %}
     <div class="col-md-12 mt-4">
-        <div class="card">
+        <div class="card turnover-section">
             <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">Топ по обороту (сегодня)</h5>
-                <small class="text-muted">MOEX marketdata</small>
-            </div>
-            <div class="card-body">
-                <div class="row g-3">
-                    {% for s in top_by_turnover %}
-                    <div class="col-lg-2 col-md-4 col-sm-6">
-                        <div class="card border-light h-100 popular-stock-card" onclick="window.location.href='{{ url_for('stock_detail', ticker=s.ticker) }}'">
-                            <div class="card-body text-center p-3">
-                                {% if s.logo_url %}
-                                    <img src="{{ s.logo_url }}" alt="{{ s.name }}" class="mb-2" style="width: 40px; height: 40px; object-fit: contain; border-radius: 8px;">
-                                {% else %}
-                                    <div class="bg-secondary rounded d-flex align-items-center justify-content-center mx-auto mb-2" style="width: 40px; height: 40px;">
-                                        <i class="fas fa-building text-white"></i>
-                                    </div>
-                                {% endif %}
-                                <h6 class="mb-1 fw-bold">{{ s.ticker }}</h6>
-                                <div class="small text-muted mb-1">{{ s.name[:18] }}{% if s.name|length > 18 %}...{% endif %}</div>
-                                <div class="mb-1"><strong class="text-primary">{{ "%.2f"|format(s.price or 0) }} ₽</strong></div>
-                                <div class="small"><span class="badge bg-light text-dark">Оборот: {{ "{:,.0f}".format(s.turnover or 0) }} ₽</span></div>
-                            </div>
-                        </div>
+                <h6 class="mb-0">Топ по обороту (сегодня)</h6>
+                <div class="d-flex align-items-center gap-2">
+                    <small class="text-muted d-none d-sm-inline">MOEX marketdata</small>
+                    <div class="turnover-nav">
+                        <button class="btn btn-sm btn-outline-secondary" type="button" onclick="scrollTurnover(-1);"><i class="fas fa-chevron-left"></i></button>
+                        <button class="btn btn-sm btn-outline-secondary" type="button" onclick="scrollTurnover(1);"><i class="fas fa-chevron-right"></i></button>
                     </div>
+                </div>
+            </div>
+            <div class="card-body py-2">
+                <div class="turnover-track" id="turnoverTrack">
+                    {% for s in top_by_turnover %}
+                    <a class="turnover-item" href="{{ url_for('stock_detail', ticker=s.ticker) }}" title="{{ s.name }}">
+                        <div class="ti-head">
+                            <img src="{{ s.logo_url }}" alt="{{ s.ticker }}" class="ti-logo">
+                            <div class="ti-ticker">{{ s.ticker }}</div>
+                        </div>
+                        <div class="ti-price">{{ "%.2f"|format(s.price or 0) }} ₽</div>
+                        <div class="ti-turnover">{{ "{:,.0f}".format(s.turnover or 0) }} ₽</div>
+                    </a>
                     {% endfor %}
                 </div>
             </div>
@@ -98,8 +95,8 @@
     <div class="col-md-12 mt-4">
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">Список акций</h5>
-                <button class="btn btn-sm btn-outline-success" onclick="updateAllPrices()" id="manualUpdateBtn">
+                <h5 class="mb-0">Список {% if ins_type == 'bond' %}облигаций{% else %}акций{% endif %}</h5>
+                <button class="btn btn-sm btn-outline-success" onclick="updateAllPrices();" id="manualUpdateBtn">
                     <i class="fas fa-sync-alt me-1"></i>Обновить цены
                 </button>
             </div>
@@ -116,7 +113,7 @@
                         </thead>
                         <tbody>
                             {% for stock in stocks.items %}
-                            <tr data-ticker="{{ stock.ticker }}" onclick="window.location.href='{{ url_for('stock_detail', ticker=stock.ticker) }}'" style="cursor: pointer;">
+                            <tr data-ticker="{{ stock.ticker }}" onclick="window.location.href='{{ url_for('stock_detail', ticker=stock.ticker) }}';" style="cursor: pointer;">
                                 <td>
                                     <div class="d-flex align-items-center gap-2">
                                         <img src="{{ stock.logo_url or ('https://ui-avatars.com/api/?name=' ~ stock.ticker ~ '&background=007bff&color=fff&size=32') }}" 
@@ -287,6 +284,14 @@
 <!-- Конец секции Crypto -->
 
 <script>
+function scrollTurnover(dir) {
+    const track = document.getElementById('turnoverTrack');
+    if (!track) return;
+    const card = track.querySelector('.turnover-item');
+    const step = card ? (card.getBoundingClientRect().width + 12) * 3 : 300;
+    track.scrollBy({ left: dir * step, behavior: 'smooth' });
+}
+
 function onSortChange(val) {
     const params = new URLSearchParams(window.location.search);
     params.set('sort', val);
