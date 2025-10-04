@@ -1026,9 +1026,9 @@ def init_routes(app):
             # Получаем параметр days (по умолчанию 7)
             days = request.args.get('days', 7, type=int)
             
-            # Ограничиваем максимум 30 дней
-            if days > 30:
-                days = 30
+            # Ограничиваем максимум 120 дней (для 3M и чуть больше)
+            if days > 120:
+                days = 120
             
             # Получаем историю с MOEX
             history = stock_api_service.get_stock_history(ticker, days)
@@ -1056,6 +1056,30 @@ def init_routes(app):
                 'error': str(e),
                 'data': []
             }), 500
+
+    @app.route('/api/stock_intraday/<ticker>')
+    def get_stock_intraday_api(ticker):
+        """API для получения внутридневной истории (по умолчанию 10-мин свечи за 24 часа)"""
+        try:
+            from stock_api import stock_api_service
+            interval = request.args.get('interval', 10, type=int)
+            hours = request.args.get('hours', 24, type=int)
+            # sanity caps
+            if interval not in (1, 10, 60):
+                interval = 10
+            if hours > 72:
+                hours = 72
+            data = stock_api_service.get_intraday_history(ticker, interval=interval, hours=hours)
+            return jsonify({
+                'success': True,
+                'ticker': ticker,
+                'interval': interval,
+                'hours': hours,
+                'data': data
+            })
+        except Exception as e:
+            logger.error(f"Ошибка intraday для {ticker}: {e}")
+            return jsonify({'success': False, 'error': str(e), 'data': []}), 500
     
     @app.route('/admin/logos')
     def admin_logos_page():

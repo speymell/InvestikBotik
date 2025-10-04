@@ -386,39 +386,117 @@ class StockAPIService:
             start_str = start_date.strftime('%Y-%m-%d')
             end_str = end_date.strftime('%Y-%m-%d')
             
-            # URL для получения исторических данных
-            url = f"{self.moex_base_url}/history/engines/stock/markets/shares/boards/TQBR/securities/{ticker}.json"
-            
-            params = {
-                'from': start_str,
-                'till': end_str,
-                'iss.meta': 'off',
-                'iss.only': 'history',
-                'history.columns': 'TRADEDATE,CLOSE'
-            }
-            
-            response = self.session.get(url, params=params, timeout=10)
-            response.raise_for_status()
-            
-            data = response.json()
-            
-            if 'history' in data and 'data' in data['history']:
-                history_data = []
-                for row in data['history']['data']:
-                    if row and len(row) >= 2 and row[1]:  # Проверяем что есть дата и цена
-                        history_data.append({
-                            'date': row[0],
-                            'price': float(row[1])
-                        })
-                
-                logger.info(f"Получено {len(history_data)} точек истории для {ticker}")
-                return history_data
-            
-            logger.warning(f"Нет данных истории для {ticker}")
+            # Нормализуем тикер (например YNDX -> YDEX, если требуется)
+            norm_ticker = self._normalize_ticker(ticker) or ticker
+            # Собираем список площадок: сначала динамические, затем стандартная TQBR
+            dynamic_boards = self._get_ticker_boards(norm_ticker) or []
+            boards_to_try = []
+            for b in dynamic_boards + ['TQBR']:
+                if b and b not in boards_to_try:
+                    boards_to_try.append(b)
+
+            # Пробуем последовательно все доступные площадки, пока не получим историю
+            for board in boards_to_try:
+                try:
+                    url = f"{self.moex_base_url}/history/engines/stock/markets/shares/boards/{board}/securities/{norm_ticker}.json"
+                    params = {
+                        'from': start_str,
+                        'till': end_str,
+                        'iss.meta': 'off',
+                        'iss.only': 'history',
+                        'history.columns': 'TRADEDATE,CLOSE'
+                    }
+                    response = self.session.get(url, params=params, timeout=10)
+                    response.raise_for_status()
+                    data = response.json()
+                    if 'history' in data and 'data' in data['history'] and data['history']['data']:
+                        history_data = []
+                        for row in data['history']['data']:
+                            if row and len(row) >= 2 and row[1]:
+                                history_data.append({'date': row[0], 'price': float(row[1])})
+                        logger.info(f"Получено {len(history_data)} точек истории для {ticker} с площадки {board}")
+                        if history_data:
+                            return history_data
+                except Exception as e:
+                    logger.warning(f"Ошибка получения истории {ticker} с площадки {board}: {e}")
+                    continue
+
+            logger.warning(f"Нет данных истории для {ticker} (SECID={norm_ticker}) ни на одной площадке")
             return []
             
         except Exception as e:
             logger.error(f"Ошибка получения истории для {ticker}: {e}")
+            return []
+
+    def get_intraday_history(self, ticker, interval=10, hours=24):
+        """Получает внутридневную историю (свечи) за последние hours часов.
+        interval: 1, 10, 60 (минуты)
+        Возвращает список [{'time': ISO, 'price': float}].
+        """
+        try:
+            from datetime import datetime, timedelta
+            now = datetime.now()
+            start_dt = now - timedelta(hours=hours)
+            start_str = start_dt.strftime('%Y-%m-%d')
+            end_str = now.strftime('%Y-%m-%d')
+
+            # Нормализуем тикер и собираем доски
+            norm_ticker = self._normalize_ticker(ticker) or ticker
+            dynamic_boards = self._get_ticker_boards(norm_ticker) or []
+            boards_to_try = []
+            for b in dynamic_boards + ['TQBR', 'TQTF', 'TQPI']:
+                if b and b not in boards_to_try:
+                    boards_to_try.append(b)
+
+            for board in boards_to_try:
+                try:
+                    url = f"{self.moex_base_url}/engines/stock/markets/shares/boards/{board}/securities/{norm_ticker}/candles.json"
+                    params = {
+                        'from': start_str,
+                        'till': end_str,
+                        'interval': interval,
+                        'iss.meta': 'off',
+                        'iss.only': 'candles',
+                        # не все инстансы уважают columns, но это не критично
+                        'candles.columns': 'begin,close'
+                    }
+                    response = self.session.get(url, params=params, timeout=10)
+                    response.raise_for_status()
+                    data = response.json()
+                    if 'candles' in data and 'data' in data['candles'] and data['candles']['data']:
+                        cols = data['candles']['columns']
+                        begin_idx = cols.index('begin') if 'begin' in cols else None
+                        close_idx = cols.index('close') if 'close' in cols else None
+                        result = []
+                        for row in data['candles']['data']:
+                            if row is None:
+                                continue
+                            try:
+                                t = row[begin_idx] if begin_idx is not None else None
+                                p = row[close_idx] if close_idx is not None else None
+                                if t and p is not None:
+                                    # Фильтруем по часовому окну
+                                    try:
+                                        # MOEX возвращает 'YYYY-MM-DD HH:MM:SS'
+                                        t_dt = datetime.fromisoformat(t.replace(' ', 'T'))
+                                        if t_dt < start_dt:
+                                            continue
+                                    except Exception:
+                                        pass
+                                    result.append({'time': t, 'price': float(p)})
+                            except Exception:
+                                continue
+                        if result:
+                            logger.info(f"Получено {len(result)} intraday-свечей для {ticker} (SECID={norm_ticker}) с {board} (interval={interval})")
+                            return result
+                except Exception as e:
+                    logger.warning(f"Ошибка intraday для {ticker} на {board}: {e}")
+                    continue
+
+            logger.warning(f"Intraday-данные для {ticker} (SECID={norm_ticker}) не найдены")
+            return []
+        except Exception as e:
+            logger.error(f"Ошибка intraday получения для {ticker}: {e}")
             return []
     
     def update_stock_prices(self):
@@ -465,6 +543,17 @@ class StockAPIService:
                     all_prices.update(batch_prices)
                 return all_prices
             
+            # Нормализуем тикеры (например YNDX -> YDEX)
+            norm_map = {}
+            normalized_tickers_list = []
+            normalized_seen = set()
+            for t in tickers:
+                norm = self._normalize_ticker(t) or t
+                norm_map[t] = norm
+                if norm not in normalized_seen:
+                    normalized_seen.add(norm)
+                    normalized_tickers_list.append(norm)
+
             # Пробуем разные торговые площадки
             boards = ['TQBR', 'TQPI', 'TQTF']  # Основные площадки для акций
             prices = {}
@@ -474,7 +563,7 @@ class StockAPIService:
                     break
                     
                 try:
-                    tickers_str = ','.join(tickers)
+                    tickers_str = ','.join(normalized_tickers_list)
                     url = f"{self.moex_base_url}/engines/stock/markets/shares/boards/{board}/securities.json?securities={tickers_str}"
                     
                     response = self.session.get(url, timeout=timeout)
@@ -496,8 +585,18 @@ class StockAPIService:
                         open_idx = columns.index('OPEN') if 'OPEN' in columns else None
                         
                         for row in data['marketdata']['data']:
-                            if secid_idx is not None and row[secid_idx] in tickers and row[secid_idx] not in prices:
-                                ticker = row[secid_idx]
+                            if secid_idx is not None:
+                                secid = row[secid_idx]
+                                # Сопоставляем SECID обратно к исходному тикеру
+                                original = None
+                                for orig, norm in norm_map.items():
+                                    if norm == secid:
+                                        original = orig
+                                        break
+                                if not original:
+                                    continue
+                                if original in prices:
+                                    continue
                                 price = None
                                 
                                 # Приоритет: LAST > CLOSE > OPEN
@@ -509,8 +608,8 @@ class StockAPIService:
                                     price = float(row[open_idx])
                                 
                                 if price and price > 0:
-                                    prices[ticker] = price
-                                    logger.info(f"Получена цена {ticker} с площадки {board}: {price}")
+                                    prices[original] = price
+                                    logger.info(f"Получена цена {original} (SECID={secid}) с площадки {board}: {price}")
                 except Exception as e:
                     logger.warning(f"Ошибка получения данных с площадки {board}: {e}")
                     continue
@@ -589,8 +688,16 @@ class StockAPIService:
     def _get_stock_price(self, ticker, timeout=10):
         """Получает текущую цену акции"""
         try:
-            # Пробуем разные торговые площадки
-            boards = ['TQBR', 'TQPI', 'TQTF']
+            orig_ticker = ticker
+            ticker = self._normalize_ticker(ticker) or ticker
+            # Сначала пытаемся определить доступные площадки для данного тикера динамически,
+            # затем добавляем стандартные как запасной вариант
+            dynamic_boards = self._get_ticker_boards(ticker) or []
+            # Пробуем разные торговые площадки (уникально, сохраняя порядок)
+            boards = []
+            for b in dynamic_boards + ['TQBR', 'TQPI', 'TQTF']:
+                if b and b not in boards:
+                    boards.append(b)
             
             for board in boards:
                 try:
@@ -600,7 +707,7 @@ class StockAPIService:
                     response.raise_for_status()
                     
                     data = response.json()
-                    logger.info(f"Получен ответ MOEX API для {ticker} с площадки {board}, секции: {list(data.keys())}")
+                    logger.info(f"Получен ответ MOEX API для {orig_ticker} (SECID={ticker}) с площадки {board}, секции: {list(data.keys())}")
                     
                     # Пробуем получить цену с этой площадки
                     price = self._extract_price_from_data(data, ticker, board)
@@ -653,8 +760,15 @@ class StockAPIService:
                 row = data['marketdata']['data'][0]
                 market = dict(zip(columns, row))
                 
-                # Приоритет: LAST (последняя цена) > CLOSE (цена закрытия) > OPEN (цена открытия)
-                price = market.get('LAST') or market.get('CLOSE') or market.get('OPEN')
+                # Расширенный приоритет цен: LAST > LCURRENTPRICE > CLOSE > OPEN > WAPRICE > MARKETPRICE2
+                price = (
+                    market.get('LAST')
+                    or market.get('LCURRENTPRICE')
+                    or market.get('CLOSE')
+                    or market.get('OPEN')
+                    or market.get('WAPRICE')
+                    or market.get('MARKETPRICE2')
+                )
                 if price and price > 0:
                     logger.info(f"Получена цена {ticker} из marketdata с площадки {board}: {price}")
                     return float(price)
@@ -667,8 +781,17 @@ class StockAPIService:
                 row = data['securities']['data'][0]
                 security = dict(zip(columns, row))
                 
-                # Пытаемся получить цену из разных полей
-                price = security.get('PREVPRICE') or security.get('LAST') or security.get('MARKETPRICE')
+                # Пытаемся получить цену из разных полей (на случай разных наборов колонок)
+                price = (
+                    security.get('PREVPRICE')
+                    or security.get('LAST')
+                    or security.get('MARKETPRICE')
+                    or security.get('LCURRENTPRICE')
+                    or security.get('MARKETPRICE2')
+                    or security.get('CLOSE')
+                    or security.get('OPEN')
+                    or security.get('PREVADMITTEDQUOTE')
+                )
                 if price and price > 0:
                     logger.info(f"Получена цена {ticker} из securities с площадки {board}: {price}")
                     return float(price)
@@ -694,6 +817,43 @@ class StockAPIService:
         except Exception as e:
             logger.error(f"Ошибка получения цены для {ticker}: {e}")
             return None
+
+    def _normalize_ticker(self, ticker: str) -> str:
+        """Нормализует тикер для MOEX (например, YNDX -> YDEX). Возвращает SECID для запросов."""
+        try:
+            mapping = {
+                # Яндекс: исторически YNDX, текущий SECID на MOEX – YDEX
+                'YNDX': 'YDEX',
+                # Можно добавлять сюда другие переименованные тикеры при необходимости
+            }
+            return mapping.get(ticker.upper(), ticker)
+        except Exception:
+            return ticker
+
+    def _get_ticker_boards(self, ticker, timeout=5):
+        """Возвращает список доступных торговых площадок (BOARDID) для тикера"""
+        try:
+            url = f"{self.moex_base_url}/securities/{ticker}.json"
+            params = {
+                'iss.meta': 'off',
+                'iss.only': 'boards',
+                'boards.columns': 'BOARDID'
+            }
+            response = self.session.get(url, params=params, timeout=timeout)
+            response.raise_for_status()
+            data = response.json()
+            boards = []
+            if 'boards' in data and 'data' in data['boards']:
+                for row in data['boards']['data']:
+                    if row and row[0]:
+                        boards.append(row[0])
+            # Логируем для отладки
+            if boards:
+                logger.info(f"Для {ticker} найдены площадки: {boards}")
+            return boards
+        except Exception as e:
+            logger.warning(f"Не удалось получить список площадок для {ticker}: {e}")
+            return []
     
     def sync_stocks_to_database(self):
         """Синхронизирует акции с базой данных"""

@@ -410,21 +410,25 @@ function getChartSeed() {
     return Math.abs(hash);
 }
 
-// Загрузка реальных данных с сервера
+// Загрузка реальных данных с сервера (по умолчанию 1D = intraday)
 async function loadRealChartData() {
     try {
-        console.log(`Загружаем реальные данные для ${ticker}...`);
-        const response = await fetch(`/api/stock_history/${ticker}?days=1`);
+        console.log(`Загружаем intraday данные для ${ticker}...`);
+        const response = await fetch(`/api/stock_intraday/${ticker}?interval=10&hours=24`);
         const data = await response.json();
         
         console.log('Ответ API:', data);
         
         if (data.success && data.data && data.data.length > 0) {
-            // Используем реальные данные с MOEX
-            priceHistory = data.data.map(item => ({
-                time: new Date(item.date).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' }),
-                price: item.price
-            }));
+            // Используем реальные intraday данные с MOEX
+            priceHistory = data.data.map(item => {
+                // item.time формат 'YYYY-MM-DD HH:MM:SS'
+                const t = new Date(item.time.replace(' ', 'T'));
+                return {
+                    time: t.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+                    price: item.price
+                };
+            });
             
             console.log(`Загружено ${priceHistory.length} реальных точек данных`);
             return true;
@@ -671,7 +675,24 @@ async function loadTimeframeData(timeframe) {
     
     switch(timeframe) {
         case '1D':
-            days = 1;
+            // Для 1D используем intraday свечи
+            try {
+                const resp = await fetch(`/api/stock_intraday/${ticker}?interval=10&hours=24`);
+                const intraday = await resp.json();
+                if (intraday.success && intraday.data && intraday.data.length > 0) {
+                    priceHistory = intraday.data.map(item => {
+                        const t = new Date(item.time.replace(' ', 'T'));
+                        return {
+                            time: t.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+                            price: item.price
+                        };
+                    });
+                    break;
+                }
+            } catch (e) {
+                console.warn('Intraday загрузка не удалась, переходим к daily history');
+            }
+            days = 1; // fallback на daily
             break;
         case '1W':
             days = 7;
@@ -680,7 +701,7 @@ async function loadTimeframeData(timeframe) {
             days = 30;
             break;
         case '3M':
-            days = 90;
+            days = 120; // сервер теперь допускает до 120
             break;
         default:
             days = 7;
@@ -691,15 +712,12 @@ async function loadTimeframeData(timeframe) {
         const data = await response.json();
         
         if (data.success && data.data && data.data.length > 0) {
-            // Используем реальные данные с MOEX
+            // Исторические дневные данные
             priceHistory = data.data.map(item => ({
                 time: new Date(item.date).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' }),
                 price: item.price
             }));
-            
-            console.log(`Загружено ${priceHistory.length} точек данных для ${timeframe}`);
         } else {
-            // Если нет реальных данных, генерируем fallback
             console.log('Генерация fallback данных для ' + timeframe);
             generateTimeframeDataFallback(timeframe);
         }
