@@ -2,27 +2,48 @@
 
 {% block content %}
 <div class="row">
-    <div class="col-md-12">
-        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
-            <h2 class="mb-0">Инвестиции</h2>
-            
-            <div class="d-flex align-items-center gap-2">
-                <!-- Фильтр Акции/Облигации -->
-                <div class="btn-group" role="group" aria-label="Тип инструмента">
-                    <a href="{{ url_for('stocks', type='share', search=search) }}" class="btn btn-outline-primary {% if request.args.get('type', 'share') == 'share' %}active{% endif %}">Акции</a>
-                    <a href="{{ url_for('stocks', type='bond', search=search) }}" class="btn btn-outline-primary {% if request.args.get('type') == 'bond' %}active{% endif %}">Облигации</a>
-                </div>
-                
-                <!-- Переключатель Акции/Crypto -->
-                <div class="market-switcher">
-                    <button class="market-btn active" id="stocksBtn" onclick="switchMarket('stocks')">
-                        <i class="fas fa-chart-line me-2"></i>Акции
-                    </button>
-                    <button class="market-btn" id="cryptoBtn" onclick="switchMarket('crypto')">
-                        <i class="fas fa-rocket me-2"></i>Crypto
-                    </button>
-                </div>
-            </div>
+    <div class="col-md-6 d-flex align-items-center gap-2 flex-wrap">
+        <h2 class="mb-0">Инвестиции</h2>
+        <!-- Фильтр Акции/Облигации -->
+        <div class="btn-group instrument-toggle" role="group" aria-label="Тип инструмента">
+            <a href="{{ url_for('stocks', type='share', search=search, sort=sort) }}" class="btn btn-outline-primary {% if ins_type == 'share' %}active{% endif %}">
+                <i class="fas fa-chart-line me-1"></i>Акции
+            </a>
+            <a href="{{ url_for('stocks', type='bond', search=search, sort=sort) }}" class="btn btn-outline-primary {% if ins_type == 'bond' %}active{% endif %}">
+                <i class="fas fa-file-contract me-1"></i>Облигации
+            </a>
+        </div>
+    </div>
+    <div class="col-md-6 d-flex justify-content-md-end align-items-center gap-2 mt-3 mt-md-0 flex-wrap">
+        <!-- Переключатель рынков (Фондовый/Crypto) -->
+        <div class="market-switcher">
+            <button class="market-btn active" id="stocksBtn" onclick="switchMarket('stocks')">
+                <i class="fas fa-building-columns me-2"></i>Фондовый
+            </button>
+            <button class="market-btn" id="cryptoBtn" onclick="switchMarket('crypto')">
+                <i class="fas fa-rocket me-2"></i>Crypto
+            </button>
+        </div>
+
+        <!-- Сортировка -->
+        <div class="d-flex align-items-center">
+            <label class="me-2 text-muted d-none d-sm-inline">Сортировать:</label>
+            <select class="form-select form-select-sm" id="sortSelect" onchange="onSortChange(this.value)">
+                <option value="price_desc" {{ 'selected' if sort=='price_desc' else '' }}>Цена ↓</option>
+                <option value="price_asc" {{ 'selected' if sort=='price_asc' else '' }}>Цена ↑</option>
+                <option value="name_asc" {{ 'selected' if sort=='name_asc' else '' }}>Название A→Я</option>
+                <option value="name_desc" {{ 'selected' if sort=='name_desc' else '' }}>Название Я→A</option>
+                <option value="ticker_asc" {{ 'selected' if sort=='ticker_asc' else '' }}>Тикер A→Я</option>
+                <option value="ticker_desc" {{ 'selected' if sort=='ticker_desc' else '' }}>Тикер Я→A</option>
+                <option value="sector_asc" {{ 'selected' if sort=='sector_asc' else '' }}>Сектор A→Я</option>
+                <option value="sector_desc" {{ 'selected' if sort=='sector_desc' else '' }}>Сектор Я→A</option>
+                <option value="turnover_desc" {{ 'selected' if sort=='turnover_desc' else '' }}>Оборот ↓</option>
+                <option value="turnover_asc" {{ 'selected' if sort=='turnover_asc' else '' }}>Оборот ↑</option>
+                <option value="volume_desc" {{ 'selected' if sort=='volume_desc' else '' }}>Объём ↓</option>
+                <option value="volume_asc" {{ 'selected' if sort=='volume_asc' else '' }}>Объём ↑</option>
+                <option value="change_desc" {{ 'selected' if sort=='change_desc' else '' }}>Изм. % ↓</option>
+                <option value="change_asc" {{ 'selected' if sort=='change_asc' else '' }}>Изм. % ↑</option>
+            </select>
         </div>
     </div>
 </div>
@@ -32,11 +53,47 @@
     <div class="row mt-3">
         <div class="col-md-6">
             <form method="GET" class="d-flex">
+                <input type="hidden" name="type" value="{{ ins_type }}">
+                <input type="hidden" name="sort" value="{{ sort }}">
                 <input class="form-control me-2" type="search" name="search" placeholder="Поиск по тикеру или названию" value="{{ search }}">
                 <button class="btn btn-outline-success" type="submit">Поиск</button>
             </form>
         </div>
     </div>
+
+    {% if top_by_turnover %}
+    <div class="col-md-12 mt-4">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Топ по обороту (сегодня)</h5>
+                <small class="text-muted">MOEX marketdata</small>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    {% for s in top_by_turnover %}
+                    <div class="col-lg-2 col-md-4 col-sm-6">
+                        <div class="card border-light h-100 popular-stock-card" onclick="window.location.href='{{ url_for('stock_detail', ticker=s.ticker) }}'">
+                            <div class="card-body text-center p-3">
+                                {% if s.logo_url %}
+                                    <img src="{{ s.logo_url }}" alt="{{ s.name }}" class="mb-2" style="width: 40px; height: 40px; object-fit: contain; border-radius: 8px;">
+                                {% else %}
+                                    <div class="bg-secondary rounded d-flex align-items-center justify-content-center mx-auto mb-2" style="width: 40px; height: 40px;">
+                                        <i class="fas fa-building text-white"></i>
+                                    </div>
+                                {% endif %}
+                                <h6 class="mb-1 fw-bold">{{ s.ticker }}</h6>
+                                <div class="small text-muted mb-1">{{ s.name[:18] }}{% if s.name|length > 18 %}...{% endif %}</div>
+                                <div class="mb-1"><strong class="text-primary">{{ "%.2f"|format(s.price or 0) }} ₽</strong></div>
+                                <div class="small"><span class="badge bg-light text-dark">Оборот: {{ "{:,.0f}".format(s.turnover or 0) }} ₽</span></div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 
     <div class="col-md-12 mt-4">
         <div class="card">
@@ -128,7 +185,16 @@
                 
                 {% if not stocks.items %}
                 <div class="text-center py-4">
-                    <p class="text-muted">Акции не найдены</p>
+                    {% if ins_type == 'bond' %}
+                        <p class="text-muted">Облигации не загружены.</p>
+                        {% if session.get('user_id') %}
+                        <button class="btn btn-outline-primary" onclick="syncBonds(event)">
+                            <i class="fas fa-arrow-rotate-right me-1"></i>Загрузить облигации
+                        </button>
+                        {% endif %}
+                    {% else %}
+                        <p class="text-muted">Акции не найдены</p>
+                    {% endif %}
                 </div>
                 {% endif %}
             </div>
@@ -144,7 +210,7 @@
                 <ul class="pagination justify-content-center">
                     {% if stocks.has_prev %}
                     <li class="page-item">
-                        <a class="page-link" href="{{ url_for('stocks', page=stocks.prev_num, search=search) }}">Предыдущая</a>
+                        <a class="page-link" href="{{ url_for('stocks', page=stocks.prev_num, search=search, type=ins_type, sort=sort) }}">Предыдущая</a>
                     </li>
                     {% endif %}
                     
@@ -152,7 +218,7 @@
                         {% if page_num %}
                             {% if page_num != stocks.page %}
                             <li class="page-item">
-                                <a class="page-link" href="{{ url_for('stocks', page=page_num, search=search) }}">{{ page_num }}</a>
+                                <a class="page-link" href="{{ url_for('stocks', page=page_num, search=search, type=ins_type, sort=sort) }}">{{ page_num }}</a>
                             </li>
                             {% else %}
                             <li class="page-item active">
@@ -168,7 +234,7 @@
                     
                     {% if stocks.has_next %}
                     <li class="page-item">
-                        <a class="page-link" href="{{ url_for('stocks', page=stocks.next_num, search=search) }}">Следующая</a>
+                        <a class="page-link" href="{{ url_for('stocks', page=stocks.next_num, search=search, type=ins_type, sort=sort) }}">Следующая</a>
                     </li>
                     {% endif %}
                 </ul>
@@ -221,6 +287,34 @@
 <!-- Конец секции Crypto -->
 
 <script>
+function onSortChange(val) {
+    const params = new URLSearchParams(window.location.search);
+    params.set('sort', val);
+    params.set('type', '{{ ins_type }}');
+    const searchVal = document.querySelector('input[name="search"]').value || '{{ search }}';
+    if (searchVal) params.set('search', searchVal);
+    window.location.href = `{{ url_for('stocks') }}?` + params.toString();
+}
+
+async function syncBonds(ev) {
+    const btn = ev.target.closest('button');
+    const original = btn.innerHTML;
+    btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Загружаем...';
+    try {
+        const resp = await fetch('/admin/sync-bonds');
+        const data = await resp.json();
+        if (data.status === 'success') {
+            location.reload();
+        } else {
+            alert('Ошибка: ' + (data.message || 'неизвестно'));
+            btn.disabled = false; btn.innerHTML = original;
+        }
+    } catch (e) {
+        alert('Ошибка сети');
+        btn.disabled = false; btn.innerHTML = original;
+    }
+}
+
 function switchMarket(market) {
     const stocksSection = document.getElementById('stocksSection');
     const cryptoSection = document.getElementById('cryptoSection');

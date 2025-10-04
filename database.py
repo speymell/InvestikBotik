@@ -25,6 +25,10 @@ class Stock(db.Model):
     description = db.Column(db.Text, nullable=True)
     instrument_type = db.Column(db.String(20), nullable=False, default='share')
     face_value = db.Column(db.Float, nullable=True)
+    # Новые метрики торгов
+    turnover = db.Column(db.Float, nullable=True)  # оборот за день (в валюте котировок, обычно рубли)
+    volume = db.Column(db.Integer, nullable=True)  # количество бумаг за день
+    change_pct = db.Column(db.Float, nullable=True)  # изменение цены за день, %
 
 class Transaction(db.Model):
     id = db.Column(db.Integer, primary_key=True)

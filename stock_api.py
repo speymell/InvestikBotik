@@ -632,6 +632,141 @@ class StockAPIService:
             logger.error(f"Ошибка получения массовых цен: {e}")
             return {}
 
+    def get_multiple_stock_trade_metrics(self, tickers, timeout=10):
+        """Возвращает метрики торгов для нескольких акций одним запросом.
+        Результат: dict[ticker] = { 'price': float, 'turnover': float|None, 'volume': int|None, 'change_pct': float|None }
+        """
+        try:
+            if not tickers:
+                return {}
+            # Ограничиваем размер батча для стабильности
+            if len(tickers) > 20:
+                merged = {}
+                for i in range(0, len(tickers), 20):
+                    batch = tickers[i:i+20]
+                    part = self.get_multiple_stock_trade_metrics(batch, timeout)
+                    merged.update(part)
+                return merged
+
+            # Нормализация тикеров -> SECID
+            norm_map = {}
+            normalized = []
+            seen = set()
+            for t in tickers:
+                n = self._normalize_ticker(t) or t
+                norm_map[t] = n
+                if n not in seen:
+                    seen.add(n)
+                    normalized.append(n)
+
+            boards = ['TQBR', 'TQPI', 'TQTF']
+            result = {}
+            for board in boards:
+                if len(result) == len(tickers):
+                    break
+                try:
+                    tickers_str = ','.join(normalized)
+                    url = f"{self.moex_base_url}/engines/stock/markets/shares/boards/{board}/securities.json?securities={tickers_str}"
+                    resp = self.session.get(url, timeout=timeout)
+                    resp.raise_for_status()
+                    data = resp.json()
+                    if not ('marketdata' in data and 'data' in data['marketdata'] and data['marketdata']['data']):
+                        continue
+                    cols = data['marketdata']['columns']
+                    idx = {
+                        'SECID': cols.index('SECID') if 'SECID' in cols else None,
+                        'LAST': cols.index('LAST') if 'LAST' in cols else None,
+                        'CLOSE': cols.index('CLOSE') if 'CLOSE' in cols else None,
+                        'OPEN': cols.index('OPEN') if 'OPEN' in cols else None,
+                        'VALTODAY': cols.index('VALTODAY') if 'VALTODAY' in cols else None,
+                        'VALTODAY_RUR': cols.index('VALTODAY_RUR') if 'VALTODAY_RUR' in cols else None,
+                        'VOLTODAY': cols.index('VOLTODAY') if 'VOLTODAY' in cols else None,
+                        'LASTCHANGEPRC': cols.index('LASTCHANGEPRC') if 'LASTCHANGEPRC' in cols else None,
+                        'LASTTOPREVPRICE': cols.index('LASTTOPREVPRICE') if 'LASTTOPREVPRICE' in cols else None,
+                    }
+                    for row in data['marketdata']['data']:
+                        secid = row[idx['SECID']] if idx['SECID'] is not None else None
+                        if not secid:
+                            continue
+                        # Map SECID to original ticker
+                        original = None
+                        for orig, n in norm_map.items():
+                            if n == secid:
+                                original = orig
+                                break
+                        if not original or original in result:
+                            continue
+                        # Price
+                        price = None
+                        for key in ('LAST', 'CLOSE', 'OPEN'):
+                            k = idx[key]
+                            if k is not None and row[k] is not None:
+                                try:
+                                    price = float(row[k])
+                                    break
+                                except Exception:
+                                    pass
+                        # Turnover (prefer RUB)
+                        turnover = None
+                        if idx['VALTODAY_RUR'] is not None and row[idx['VALTODAY_RUR']] is not None:
+                            try:
+                                turnover = float(row[idx['VALTODAY_RUR']])
+                            except Exception:
+                                turnover = None
+                        elif idx['VALTODAY'] is not None and row[idx['VALTODAY']] is not None:
+                            try:
+                                turnover = float(row[idx['VALTODAY']])
+                            except Exception:
+                                turnover = None
+                        # Volume
+                        volume = None
+                        if idx['VOLTODAY'] is not None and row[idx['VOLTODAY']] is not None:
+                            try:
+                                volume = int(row[idx['VOLTODAY']])
+                            except Exception:
+                                try:
+                                    volume = int(float(row[idx['VOLTODAY']]))
+                                except Exception:
+                                    volume = None
+                        # Change percent
+                        change_pct = None
+                        if idx['LASTCHANGEPRC'] is not None and row[idx['LASTCHANGEPRC']] is not None:
+                            try:
+                                change_pct = float(row[idx['LASTCHANGEPRC']])
+                            except Exception:
+                                change_pct = None
+                        elif idx['LASTTOPREVPRICE'] is not None and row[idx['LASTTOPREVPRICE']] is not None:
+                            try:
+                                # LASTTOPREVPRICE уже в %, по спецификации MOEX
+                                change_pct = float(row[idx['LASTTOPREVPRICE']])
+                            except Exception:
+                                change_pct = None
+
+                        if price is not None and price > 0:
+                            result[original] = {
+                                'price': price,
+                                'turnover': turnover,
+                                'volume': volume,
+                                'change_pct': change_pct,
+                            }
+                except Exception as e:
+                    logger.warning(f"Ошибка метрик на борде {board}: {e}")
+                    continue
+
+            # Индивидуальные попытки для отсутствующих тикеров (только цена)
+            missing = [t for t in tickers if t not in result]
+            for t in missing:
+                try:
+                    p = self._get_stock_price(t, timeout=5)
+                    if p and p > 0:
+                        result[t] = {'price': p, 'turnover': None, 'volume': None, 'change_pct': None}
+                except Exception:
+                    pass
+            return result
+        except Exception as e:
+            logger.error(f"Ошибка получения метрик: {e}")
+            return {}
+
     def get_multiple_bond_prices(self, tickers, face_values_map=None, timeout=10):
         """Получает цены нескольких облигаций одним запросом (в рублях)
         face_values_map: dict[ticker] -> face_value

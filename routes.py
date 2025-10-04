@@ -495,6 +495,10 @@ def init_routes(app):
                         # PostgreSQL: используем IF NOT EXISTS
                         db.session.execute(db.text("ALTER TABLE stock ADD COLUMN IF NOT EXISTS instrument_type VARCHAR(20) DEFAULT 'share'"))
                         db.session.execute(db.text("ALTER TABLE stock ADD COLUMN IF NOT EXISTS face_value DOUBLE PRECISION"))
+                        # Новые метрики торгов
+                        db.session.execute(db.text("ALTER TABLE stock ADD COLUMN IF NOT EXISTS turnover DOUBLE PRECISION"))
+                        db.session.execute(db.text("ALTER TABLE stock ADD COLUMN IF NOT EXISTS volume BIGINT"))
+                        db.session.execute(db.text("ALTER TABLE stock ADD COLUMN IF NOT EXISTS change_pct DOUBLE PRECISION"))
                     else:
                         # SQLite/MySQL: пробуем добавить, игнорируем ошибку, если колонка уже есть
                         try:
@@ -503,6 +507,19 @@ def init_routes(app):
                             db.session.rollback()
                         try:
                             db.session.execute(db.text("ALTER TABLE stock ADD COLUMN face_value FLOAT"))
+                        except Exception:
+                            db.session.rollback()
+                        # Новые метрики торгов
+                        try:
+                            db.session.execute(db.text("ALTER TABLE stock ADD COLUMN turnover FLOAT"))
+                        except Exception:
+                            db.session.rollback()
+                        try:
+                            db.session.execute(db.text("ALTER TABLE stock ADD COLUMN volume INTEGER"))
+                        except Exception:
+                            db.session.rollback()
+                        try:
+                            db.session.execute(db.text("ALTER TABLE stock ADD COLUMN change_pct FLOAT"))
                         except Exception:
                             db.session.rollback()
                     db.session.commit()
@@ -672,6 +689,7 @@ def init_routes(app):
         page = request.args.get('page', 1, type=int)
         search = request.args.get('search', '')
         ins_type = request.args.get('type', 'share')
+        sort = request.args.get('sort', 'price_desc')
 
         query = Stock.query
         if search:
@@ -690,6 +708,57 @@ def init_routes(app):
                 query_filtered = query.filter(Stock.instrument_type == ins_type)
             else:
                 query_filtered = query
+
+            # Сортировка
+            if sort == 'price_desc':
+                query_filtered = query_filtered.order_by(Stock.price.desc())
+            elif sort == 'price_asc':
+                query_filtered = query_filtered.order_by(Stock.price.asc())
+            elif sort == 'name_asc':
+                query_filtered = query_filtered.order_by(Stock.name.asc())
+            elif sort == 'name_desc':
+                query_filtered = query_filtered.order_by(Stock.name.desc())
+            elif sort == 'ticker_asc':
+                query_filtered = query_filtered.order_by(Stock.ticker.asc())
+            elif sort == 'ticker_desc':
+                query_filtered = query_filtered.order_by(Stock.ticker.desc())
+            elif sort == 'sector_asc':
+                query_filtered = query_filtered.order_by(Stock.sector.asc().nulls_last()) if hasattr(Stock.sector, 'asc') else query_filtered.order_by(Stock.sector)
+            elif sort == 'sector_desc':
+                query_filtered = query_filtered.order_by(Stock.sector.desc().nulls_last()) if hasattr(Stock.sector, 'desc') else query_filtered.order_by(Stock.sector)
+            elif sort == 'turnover_desc':
+                try:
+                    query_filtered = query_filtered.filter(Stock.turnover != None).order_by(Stock.turnover.desc())
+                except Exception:
+                    query_filtered = query_filtered.order_by(Stock.price.desc())
+            elif sort == 'turnover_asc':
+                try:
+                    query_filtered = query_filtered.filter(Stock.turnover != None).order_by(Stock.turnover.asc())
+                except Exception:
+                    query_filtered = query_filtered.order_by(Stock.price.asc())
+            elif sort == 'volume_desc':
+                try:
+                    query_filtered = query_filtered.filter(Stock.volume != None).order_by(Stock.volume.desc())
+                except Exception:
+                    query_filtered = query_filtered.order_by(Stock.price.desc())
+            elif sort == 'volume_asc':
+                try:
+                    query_filtered = query_filtered.filter(Stock.volume != None).order_by(Stock.volume.asc())
+                except Exception:
+                    query_filtered = query_filtered.order_by(Stock.price.asc())
+            elif sort == 'change_desc':
+                try:
+                    query_filtered = query_filtered.filter(Stock.change_pct != None).order_by(Stock.change_pct.desc())
+                except Exception:
+                    query_filtered = query_filtered.order_by(Stock.price.desc())
+            elif sort == 'change_asc':
+                try:
+                    query_filtered = query_filtered.filter(Stock.change_pct != None).order_by(Stock.change_pct.asc())
+                except Exception:
+                    query_filtered = query_filtered.order_by(Stock.price.asc())
+            else:
+                query_filtered = query_filtered.order_by(Stock.price.desc())
+
             stocks = query_filtered.paginate(
                 page=page, per_page=50, error_out=False
             )
@@ -698,7 +767,9 @@ def init_routes(app):
                 logger.warning(f"Stocks query fallback (no instrument_type filter): {e}")
             except Exception:
                 pass
-            stocks = query.paginate(
+            # Без фильтра и с базовой сортировкой
+            base_q = query.order_by(Stock.price.desc()) if sort == 'price_desc' else query
+            stocks = base_q.paginate(
                 page=page, per_page=50, error_out=False
             )
 
@@ -706,7 +777,15 @@ def init_routes(app):
         if 'user_id' in session:
             accounts = Account.query.filter_by(user_id=session['user_id']).all()
 
-        return render_template('stocks.html', stocks=stocks, search=search, accounts=accounts)
+        # Топ по обороту за сегодня (только для акций)
+        top_by_turnover = []
+        try:
+            if ins_type == 'share':
+                top_by_turnover = Stock.query.filter(Stock.turnover != None, Stock.turnover > 0).order_by(Stock.turnover.desc()).limit(6).all()
+        except Exception:
+            top_by_turnover = []
+
+        return render_template('stocks.html', stocks=stocks, search=search, accounts=accounts, ins_type=ins_type, sort=sort, top_by_turnover=top_by_turnover)
 
     @app.route('/stock/<ticker>')
     def stock_detail(ticker):
@@ -808,6 +887,7 @@ def init_routes(app):
     app.add_url_rule('/api/stock_price/<ticker>', view_func=get_stock_price)
     app.add_url_rule('/api/update_all_prices', view_func=update_all_prices)
     app.add_url_rule('/admin/sync-bonds', view_func=sync_bonds)
+    app.add_url_rule('/api/portfolio_history', view_func=get_portfolio_history)
     
 def deposit():
     """API для пополнения счета"""
@@ -1079,19 +1159,35 @@ def update_all_prices():
         share_tickers = [s.ticker for s in stocks if getattr(s, 'instrument_type', 'share') == 'share']
         bond_tickers = [s.ticker for s in stocks if getattr(s, 'instrument_type', 'share') == 'bond']
         face_values_map = {s.ticker: getattr(s, 'face_value', None) for s in stocks if getattr(s, 'instrument_type', 'share') == 'bond'}
-        prices = {}
+        metrics = {}
         if share_tickers:
-            prices.update(stock_api_service.get_multiple_stock_prices(share_tickers, timeout=10))
+            # Получаем метрики торгов для акций (включая цену)
+            m = stock_api_service.get_multiple_stock_trade_metrics(share_tickers, timeout=10)
+            if m:
+                metrics.update(m)
         if bond_tickers:
-            prices.update(stock_api_service.get_multiple_bond_prices(bond_tickers, face_values_map=face_values_map, timeout=10))
+            # Для облигаций только цена
+            bond_prices = stock_api_service.get_multiple_bond_prices(bond_tickers, face_values_map=face_values_map, timeout=10)
+            for t, p in bond_prices.items():
+                metrics[t] = {'price': p}
+
         for stock in stocks:
             try:
-                if stock.ticker in prices:
-                    new_price = prices[stock.ticker]
+                if stock.ticker in metrics and metrics[stock.ticker].get('price'):
+                    new_price = metrics[stock.ticker]['price']
                     old_price = stock.price
                     stock.price = new_price
+                    # Дополнительные метрики для акций
+                    data = metrics.get(stock.ticker, {})
+                    if getattr(stock, 'instrument_type', 'share') == 'share':
+                        if 'turnover' in data:
+                            stock.turnover = data.get('turnover')
+                        if 'volume' in data:
+                            stock.volume = data.get('volume')
+                        if 'change_pct' in data:
+                            stock.change_pct = data.get('change_pct')
                     updated_count += 1
-                    results.append({'ticker': stock.ticker, 'old_price': old_price, 'new_price': new_price, 'status': 'updated'})
+                    results.append({'ticker': stock.ticker, 'old_price': old_price, 'new_price': new_price, 'status': 'updated', 'turnover': stock.turnover, 'volume': stock.volume, 'change_pct': stock.change_pct})
                     logger.info(f"Обновлена цена {stock.ticker}: {old_price} → {new_price}")
                 else:
                     failed_count += 1
@@ -1120,6 +1216,58 @@ def sync_bonds():
             return jsonify({'status': 'error', 'message': f'Ошибка синхронизации облигаций: {error_msg}'}), 500
     except Exception as e:
         return jsonify({'status': 'error', 'message': f'Ошибка синхронизации облигаций: {str(e)}'}), 500
+
+def get_portfolio_history():
+    """API: История стоимости портфеля пользователя за N дней (по умолчанию 30),
+    оценивается на основе текущих позиций и дневной истории цен."""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Не авторизован'}), 401
+    try:
+        from stock_api import stock_api_service
+        days = request.args.get('days', 30, type=int)
+        if days > 120:
+            days = 120
+        # Считаем текущие позиции пользователя по всем счетам
+        txs = Transaction.query.join(Account).filter(
+            Account.user_id == session['user_id'],
+            Transaction.type.in_(['buy', 'sell'])
+        ).all()
+        qty_by_stock = {}
+        stock_map = {}
+        for t in txs:
+            sid = t.stock_id
+            if not sid:
+                continue
+            st = stock_map.get(sid) or Stock.query.get(sid)
+            stock_map[sid] = st
+            if not st:
+                continue
+            q = t.quantity or 0
+            if t.type == 'buy':
+                qty_by_stock[sid] = qty_by_stock.get(sid, 0) + q
+            elif t.type == 'sell':
+                qty_by_stock[sid] = qty_by_stock.get(sid, 0) - q
+        # Оставляем только положительные позиции
+        qty_by_stock = {sid: q for sid, q in qty_by_stock.items() if q > 0}
+        if not qty_by_stock:
+            return jsonify({'success': True, 'data': []})
+        # Собираем историю по каждому тикеру и агрегируем по датам
+        history_map = {}
+        for sid, qty in qty_by_stock.items():
+            st = stock_map[sid]
+            if not st:
+                continue
+            hist = stock_api_service.get_stock_history(st.ticker, days)
+            for item in hist:
+                d = item['date']
+                p = float(item['price'])
+                history_map[d] = history_map.get(d, 0.0) + qty * p
+        # Преобразуем в отсортированный список
+        items = sorted([{'date': d, 'value': round(v, 2)} for d, v in history_map.items()], key=lambda x: x['date'])
+        return jsonify({'success': True, 'data': items})
+    except Exception as e:
+        logger.error(f"Ошибка истории портфеля: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 # Вспомогательные функции (вне init_routes)
 def get_sector_by_ticker(ticker):

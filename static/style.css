@@ -1041,6 +1041,32 @@ footer {
     color: #90cdf4;
 }
 
+/* Instrument toggle (Акции/Облигации) UI improvements */
+.instrument-toggle .btn {
+    border-radius: 9999px;
+    padding: 0.4rem 0.9rem;
+}
+.instrument-toggle .btn.active {
+    box-shadow: 0 2px 10px rgba(102, 126, 234, 0.25);
+}
+
+/* Prevent overflow: allow wrapping and make market buttons compact on mobile */
+.market-switcher { flex-wrap: wrap; }
+@media (max-width: 576px) {
+    .market-switcher { width: 100%; justify-content: center; }
+    .market-btn { flex: 1 1 auto; padding: 0.5rem 0.75rem; font-size: 0.9rem; }
+}
+
+/* Sticky filter bar helper (optional usage) */
+.sticky-filters {
+    position: sticky;
+    top: 64px;
+    z-index: 10;
+    background: white;
+    padding-top: 0.5rem;
+}
+[data-theme="dark"] .sticky-filters { background: #2d3748; }
+
 /* Космическая заглушка для Crypto */
 .crypto-coming-soon {
     position: relative;
