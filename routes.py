@@ -473,16 +473,77 @@ def init_routes(app):
     def index():
         current_year = datetime.datetime.now().year
         try:
-            # Автоматически синхронизируем акции если их мало
-            stock_count = Stock.query.count()
-            if stock_count < 50:
+            # Безопасно пробуем посчитать количество бумаг
+            stock_count = None
+            try:
+                stock_count = Stock.query.count()
+            except Exception as e:
+                logger.error(f"Index DB count error: {e}")
+                try:
+                    db.session.rollback()
+                except Exception:
+                    pass
+                # Автоматическая попытка добавить отсутствующие колонки (для прод базы без миграции)
+                try:
+                    dialect = ''
+                    try:
+                        bind = db.session.get_bind() if hasattr(db.session, 'get_bind') else db.session.bind
+                        dialect = bind.dialect.name if bind is not None else ''
+                    except Exception:
+                        pass
+                    if dialect.startswith('postgres'):
+                        # PostgreSQL: используем IF NOT EXISTS
+                        db.session.execute(db.text("ALTER TABLE stock ADD COLUMN IF NOT EXISTS instrument_type VARCHAR(20) DEFAULT 'share'"))
+                        db.session.execute(db.text("ALTER TABLE stock ADD COLUMN IF NOT EXISTS face_value DOUBLE PRECISION"))
+                    else:
+                        # SQLite/MySQL: пробуем добавить, игнорируем ошибку, если колонка уже есть
+                        try:
+                            db.session.execute(db.text("ALTER TABLE stock ADD COLUMN instrument_type VARCHAR(20) DEFAULT 'share'"))
+                        except Exception:
+                            db.session.rollback()
+                        try:
+                            db.session.execute(db.text("ALTER TABLE stock ADD COLUMN face_value FLOAT"))
+                        except Exception:
+                            db.session.rollback()
+                    db.session.commit()
+                except Exception as mig_e:
+                    logger.error(f"Auto-migration fails on index: {mig_e}")
+                    try:
+                        db.session.rollback()
+                    except Exception:
+                        pass
+
+                # Переходим на безопасный raw COUNT, чтобы страница все равно загрузилась
+                try:
+                    stock_count = db.session.execute(db.text("SELECT COUNT(1) FROM stock")).scalar()
+                except Exception as raw_e:
+                    logger.error(f"Raw COUNT failed: {raw_e}")
+                    try:
+                        db.session.rollback()
+                    except Exception:
+                        pass
+                    stock_count = None
+
+            # Автосинхронизация при небольшой базе, с безопасным rollback
+            if stock_count is not None and stock_count < 50:
                 try:
                     from stock_api import stock_api_service
                     stock_api_service.sync_stocks_to_database()
-                    # Параллельно синхронизируем облигации (не критично при ошибке)
+                except Exception as e:
+                    logger.error(f"Auto sync stocks error: {e}")
+                    try:
+                        db.session.rollback()
+                    except Exception:
+                        pass
+                try:
+                    from stock_api import stock_api_service
                     stock_api_service.sync_bonds_to_database()
-                except Exception:
-                    pass  # Игнорируем ошибки синхронизации
+                except Exception as e:
+                    logger.error(f"Auto sync bonds error: {e}")
+                    try:
+                        db.session.rollback()
+                    except Exception:
+                        pass
             
             return render_template('index.html', year=current_year)
         except Exception as e:
