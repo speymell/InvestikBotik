@@ -58,7 +58,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            {% for stock in stocks %}
+                            {% for stock in stocks.items %}
                             <tr data-ticker="{{ stock.ticker }}" onclick="window.location.href='{{ url_for('stock_detail', ticker=stock.ticker) }}'" style="cursor: pointer;">
                                 <td>
                                     <div class="d-flex align-items-center gap-2">
@@ -92,7 +92,7 @@
                 
                 <!-- Мобильная версия -->
                 <div class="d-block d-md-none">
-                    {% for stock in stocks %}
+                    {% for stock in stocks.items %}
                     <div class="stock-mobile-item" data-ticker="{{ stock.ticker }}" onclick="window.location.href='{{ url_for('stock_detail', ticker=stock.ticker) }}';">
                         <div class="d-flex align-items-center">
                             <div class="stock-mobile-logo">

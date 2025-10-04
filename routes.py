@@ -634,6 +634,13 @@ def init_routes(app):
         recent_transactions = Transaction.query.join(Account).filter(
             Account.user_id == user.id
         ).order_by(Transaction.timestamp.desc()).limit(10).all()
+        # Гарантируем, что timestamp не None для шаблона
+        try:
+            for t in recent_transactions:
+                if not getattr(t, 'timestamp', None):
+                    t.timestamp = datetime.datetime.now()
+        except Exception:
+            pass
         
         # Получаем топ акций
         top_stocks = get_top_stocks(6)
@@ -647,6 +654,18 @@ def init_routes(app):
                              recent_transactions=recent_transactions,
                              top_stocks=top_stocks)
 
+    @app.route('/account/<int:account_id>')
+    def account_detail(account_id):
+        """Страница деталей счета (временная заглушка)"""
+        if 'user_id' not in session:
+            return redirect(url_for('login'))
+        # Проверяем, что счет принадлежит пользователю
+        acc = Account.query.filter_by(id=account_id, user_id=session['user_id']).first()
+        if not acc:
+            return redirect(url_for('dashboard'))
+        # Пока перенаправляем обратно на дашборд
+        return redirect(url_for('dashboard'))
+
     @app.route('/stocks')
     def stocks():
         """Страница со списком акций"""
@@ -655,9 +674,6 @@ def init_routes(app):
         ins_type = request.args.get('type', 'share')
 
         query = Stock.query
-        if ins_type in ('share', 'bond'):
-            query = query.filter(Stock.instrument_type == ins_type)
-
         if search:
             from sqlalchemy import or_
             query = query.filter(
@@ -667,11 +683,72 @@ def init_routes(app):
                 )
             )
 
-        stocks = query.paginate(
-            page=page, per_page=50, error_out=False
-        )
+        # Пытаемся применить фильтр по типу инструмента; при ошибке (например, нет колонки) —
+        # делаем fallback без этого фильтра
+        try:
+            if ins_type in ('share', 'bond'):
+                query_filtered = query.filter(Stock.instrument_type == ins_type)
+            else:
+                query_filtered = query
+            stocks = query_filtered.paginate(
+                page=page, per_page=50, error_out=False
+            )
+        except Exception as e:
+            try:
+                logger.warning(f"Stocks query fallback (no instrument_type filter): {e}")
+            except Exception:
+                pass
+            stocks = query.paginate(
+                page=page, per_page=50, error_out=False
+            )
 
-        return render_template('stocks.html', stocks=stocks, search=search)
+        accounts = []
+        if 'user_id' in session:
+            accounts = Account.query.filter_by(user_id=session['user_id']).all()
+
+        return render_template('stocks.html', stocks=stocks, search=search, accounts=accounts)
+
+    @app.route('/stock/<ticker>')
+    def stock_detail(ticker):
+        """Детальная страница акции"""
+        stock = Stock.query.filter_by(ticker=ticker).first()
+        if not stock:
+            return redirect(url_for('stocks'))
+
+        user_positions = None
+        if 'user_id' in session:
+            # Собираем позиции пользователя по данной бумаге
+            txs = Transaction.query.join(Account).filter(
+                Account.user_id == session['user_id'],
+                Transaction.stock_id == stock.id,
+                Transaction.type.in_(['buy', 'sell'])
+            ).all()
+            qty = 0
+            total_cost = 0.0
+            for t in txs:
+                q = (t.quantity or 0)
+                p = (t.price or 0.0)
+                if t.type == 'buy':
+                    qty += q
+                    total_cost += q * p
+                elif t.type == 'sell':
+                    qty -= q
+                    total_cost -= q * p
+            if qty > 0:
+                avg_price = total_cost / qty if qty else 0
+                current_value = qty * (stock.price or 0.0)
+                profit_loss = current_value - total_cost
+                profit_loss_percent = (profit_loss / total_cost * 100) if total_cost > 0 else 0
+                user_positions = {
+                    'quantity': qty,
+                    'avg_price': avg_price,
+                    'current_value': current_value,
+                    'profit_loss': profit_loss,
+                    'profit_loss_percent': profit_loss_percent
+                }
+
+        today = datetime.date.today().isoformat()
+        return render_template('stock_detail.html', stock=stock, user_positions=user_positions, today=today)
 
     @app.route('/api/news/<ticker>')
     def get_stock_news(ticker):
