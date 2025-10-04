@@ -663,13 +663,39 @@ def init_routes(app):
         top_stocks = get_top_stocks(6)
         if not top_stocks:
             top_stocks = Stock.query.filter(Stock.price > 0).order_by(Stock.price.desc()).limit(6).all()
+
+        # Структура портфеля по секторам (по текущей стоимости)
+        sector_labels = []
+        sector_values = []
+        try:
+            sector_totals = {}
+            positions = []
+            try:
+                positions = portfolio_stats.get('positions') if isinstance(portfolio_stats, dict) else []
+            except Exception:
+                positions = []
+            for pos in positions:
+                try:
+                    sec = getattr(pos.stock, 'sector', None) or 'Прочие'
+                    val = float(getattr(pos, 'current_value', 0.0) or 0.0)
+                    if val > 0:
+                        sector_totals[sec] = sector_totals.get(sec, 0.0) + val
+                except Exception:
+                    continue
+            ordered = sorted(sector_totals.items(), key=lambda x: x[1], reverse=True)
+            sector_labels = [k for k, _ in ordered]
+            sector_values = [round(v, 2) for _, v in ordered]
+        except Exception:
+            pass
         
         return render_template('dashboard.html', 
                              user=user, 
                              accounts=accounts, 
                              portfolio_stats=portfolio_stats,
                              recent_transactions=recent_transactions,
-                             top_stocks=top_stocks)
+                             top_stocks=top_stocks,
+                             sector_labels=sector_labels,
+                             sector_values=sector_values)
 
     @app.route('/account/<int:account_id>')
     def account_detail(account_id):
@@ -714,6 +740,15 @@ def init_routes(app):
                 db.session.execute(db.text("ALTER TABLE stock ADD COLUMN IF NOT EXISTS turnover DOUBLE PRECISION"))
                 db.session.execute(db.text("ALTER TABLE stock ADD COLUMN IF NOT EXISTS volume BIGINT"))
                 db.session.execute(db.text("ALTER TABLE stock ADD COLUMN IF NOT EXISTS change_pct DOUBLE PRECISION"))
+                # Обновляем типы, если уже существовали как иные:
+                try:
+                    db.session.execute(db.text("ALTER TABLE stock ALTER COLUMN volume TYPE BIGINT USING volume::BIGINT"))
+                except Exception:
+                    pass
+                try:
+                    db.session.execute(db.text("ALTER TABLE stock ALTER COLUMN turnover TYPE DOUBLE PRECISION USING turnover::DOUBLE PRECISION"))
+                except Exception:
+                    pass
             else:
                 for stmt in [
                     "ALTER TABLE stock ADD COLUMN instrument_type VARCHAR(20) DEFAULT 'share'",
@@ -1193,6 +1228,28 @@ def update_all_prices():
     try:
         from stock_api import stock_api_service
         import time
+        # Гарантируем корректные типы колонок в Postgres (volume: BIGINT, turnover: DOUBLE PRECISION)
+        try:
+            bind = db.session.get_bind() if hasattr(db.session, 'get_bind') else db.session.bind
+            if bind is not None and getattr(bind.dialect, 'name', '') .startswith('postgres'):
+                try:
+                    db.session.execute(db.text("ALTER TABLE stock ALTER COLUMN volume TYPE BIGINT USING volume::BIGINT"))
+                except Exception:
+                    db.session.rollback()
+                try:
+                    db.session.execute(db.text("ALTER TABLE stock ALTER COLUMN turnover TYPE DOUBLE PRECISION USING turnover::DOUBLE PRECISION"))
+                except Exception:
+                    db.session.rollback()
+                try:
+                    db.session.commit()
+                except Exception:
+                    db.session.rollback()
+        except Exception:
+            # Не мешаем основному потоку обновления
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
         stocks = Stock.query.all()
         updated_count = 0
         failed_count = 0

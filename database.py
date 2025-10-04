@@ -27,7 +27,7 @@ class Stock(db.Model):
     face_value = db.Column(db.Float, nullable=True)
     # Новые метрики торгов
     turnover = db.Column(db.Float, nullable=True)  # оборот за день (в валюте котировок, обычно рубли)
-    volume = db.Column(db.Integer, nullable=True)  # количество бумаг за день
+    volume = db.Column(db.BigInteger, nullable=True)  # количество бумаг за день (BIGINT для Postgres)
     change_pct = db.Column(db.Float, nullable=True)  # изменение цены за день, %
 
 class Transaction(db.Model):

@@ -94,7 +94,7 @@
 <!-- Компактный вид статистики -->
 <div id="statsCompactView" class="row mt-4" style="display: none;">
     <div class="col-md-12">
-        <div class="card">
+        <div class="card glass-card">
             <div class="card-body p-3">
                 <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
                     <div class="compact-stat-inline">
@@ -128,7 +128,7 @@
 
 <div class="row mt-4 mt-md-5">
     <div class="col-md-6">
-        <div class="card">
+        <div class="card glass-card">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="mb-0">Мои счета</h5>
                 <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#createAccountModal">
@@ -162,7 +162,7 @@
     </div>
     
     <div class="col-md-6 mt-3 mt-md-0">
-        <div class="card">
+        <div class="card glass-card">
             <div class="card-header">
                 <h5>Последние транзакции</h5>
             </div>
@@ -244,6 +244,24 @@
     </div>
 </div>
 {% endif %}
+
+<!-- Структура портфеля по секторам -->
+<div class="row mt-4">
+  <div class="col-md-12">
+    <div class="card glass-card chart-card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Структура портфеля по секторам</h5>
+        <small class="text-muted">По текущей стоимости</small>
+      </div>
+      <div class="card-body">
+        <div class="chart-wrapper">
+          <canvas id="sectorChart"></canvas>
+          <div id="sectorEmpty" class="text-muted small d-none">Нет позиций для построения диаграммы</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  </div>
 
 <!-- Топ акций -->
 <div class="row mt-5">
@@ -335,8 +353,9 @@
             </div>
         </div>
     </div>
-</div>
+ </div>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 function submitDeposit() {
     const accountId = document.getElementById('accountSelect').value;
@@ -431,6 +450,42 @@ document.addEventListener('DOMContentLoaded', function() {
     if (savedView === 'compact') {
         toggleStatsView('compact');
     }
+    // Секторная диаграмма
+    try {
+      const ctx = document.getElementById('sectorChart');
+      if (ctx) {
+        const positions = [
+          {% for p in portfolio_stats.positions or [] %}
+          { sector: {{ (p.stock.sector or 'Прочие')|tojson }}, value: {{ (p.current_value or 0)|round(2) }} },
+          {% endfor %}
+        ];
+        const totals = {};
+        positions.forEach(it => {
+          const key = it.sector || 'Прочие';
+          totals[key] = (totals[key] || 0) + (Number(it.value) || 0);
+        });
+        const entries = Object.entries(totals).filter(([,v]) => v > 0).sort((a,b)=>b[1]-a[1]);
+        const labels = entries.map(e=>e[0]);
+        const data = entries.map(e=>Number(e[1].toFixed(2)));
+        if (data.length === 0) {
+          document.getElementById('sectorEmpty')?.classList.remove('d-none');
+        } else {
+          const palette = ['#6366F1','#22C55E','#F59E0B','#EF4444','#3B82F6','#10B981','#EAB308','#8B5CF6','#F97316','#14B8A6'];
+          new Chart(ctx, {
+            type: 'doughnut',
+            data: { labels, datasets: [{ data, backgroundColor: labels.map((_,i)=> palette[i%palette.length]), borderWidth: 1 }] },
+            options: {
+              responsive: true,
+              plugins: {
+                legend: { position: 'bottom' },
+                tooltip: { callbacks: { label: (c)=> `${c.label}: ${c.raw.toLocaleString('ru-RU',{maximumFractionDigits:2})} ₽` } }
+              },
+              cutout: '60%'
+            }
+          });
+        }
+      }
+    } catch(e) { console.warn('Sector chart error', e); }
 });
 </script>
 {% endblock %}

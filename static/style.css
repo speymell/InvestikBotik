@@ -1293,6 +1293,52 @@ footer {
     margin: 0 2px;
 }
 
+/* Glassmorphism additions */
+.glass-nav {
+    position: sticky;
+    top: 0;
+    z-index: 1030;
+    background: rgba(255, 255, 255, 0.65) !important;
+    backdrop-filter: saturate(180%) blur(14px);
+    -webkit-backdrop-filter: saturate(180%) blur(14px);
+    border-bottom: 1px solid rgba(0,0,0,0.08);
+}
+[data-theme="dark"] .glass-nav {
+    background: rgba(45, 55, 72, 0.65) !important;
+    border-bottom-color: rgba(255,255,255,0.08);
+}
+
+.page-surface {
+    border-radius: 16px;
+    background: rgba(255,255,255,0.6);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.06);
+    padding-top: 1rem;
+}
+[data-theme="dark"] .page-surface {
+    background: rgba(45,55,72,0.55);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+}
+
+.glass-card {
+    background: rgba(255,255,255,0.55) !important;
+    border: 1px solid rgba(0,0,0,0.06) !important;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.08) !important;
+}
+[data-theme="dark"] .glass-card {
+    background: rgba(45,55,72,0.55) !important;
+    border-color: rgba(255,255,255,0.08) !important;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4) !important;
+}
+
+.chart-card {
+    overflow: hidden;
+}
+.chart-wrapper { height: 320px; position: relative; }
+
 .page-link:hover {
     background-color: #667eea;
     border-color: #667eea;
