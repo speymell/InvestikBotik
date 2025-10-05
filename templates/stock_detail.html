@@ -412,18 +412,23 @@ document.addEventListener('DOMContentLoaded', function() {
     // Init chart and news
     if (typeof initChart === 'function') initChart();
     if (typeof loadNews === 'function') loadNews();
-    // Preload accounts if user is logged in and modal exists
-    if (document.getElementById('buyModal')) {
+    // Preload accounts and attach listeners for modals (buy/historical/sell)
+    const buyM = document.getElementById('buyModal');
+    const histM = document.getElementById('historicalBuyModal');
+    const sellM = document.getElementById('sellModal');
+
+    if (buyM) {
         try { loadAccounts(); } catch (e) {}
-        // Refresh accounts on modal open
-        const buyM = document.getElementById('buyModal');
         buyM.addEventListener('show.bs.modal', function() {
             try { loadAccounts(); } catch (e) {}
         });
-        const histM = document.getElementById('historicalBuyModal');
-        if (histM) histM.addEventListener('show.bs.modal', function() { try { loadAccounts(); } catch (e) {} });
-        const sellM = document.getElementById('sellModal');
-        if (sellM) sellM.addEventListener('show.bs.modal', function() { try { loadAccounts(); } catch (e) {} });
+    }
+    if (histM) {
+        try { loadAccounts(); } catch (e) {}
+        histM.addEventListener('show.bs.modal', function() { try { loadAccounts(); } catch (e) {} });
+    }
+    if (sellM) {
+        sellM.addEventListener('show.bs.modal', function() { try { loadAccounts(); } catch (e) {} });
     }
     // Auto-update price every 2 minutes
     if (typeof updatePrice === 'function') {
