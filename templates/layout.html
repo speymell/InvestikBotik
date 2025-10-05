@@ -24,7 +24,7 @@
     <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 </head>
-<body>
+<body data-logged-in="{{ '1' if session.get('user_id') else '0' }}">
 
 <!-- Навигационная панель -->
 <nav class="navbar navbar-expand-lg glass-nav">
@@ -181,6 +181,44 @@ document.addEventListener('DOMContentLoaded', function() {
       // Fallback: ensure theme-color matches current data-theme
       const current = document.documentElement.getAttribute('data-theme') || 'light';
       applyTheme(current, false);
+    }
+  });
+})();
+</script>
+
+<!-- Global Telegram auto-login to avoid showing login CTA when running in TG -->
+<script>
+(function() {
+  // Server-side session flag
+  const IS_LOGGED_IN = (document.body.getAttribute('data-logged-in') === '1');
+  document.addEventListener('DOMContentLoaded', function() {
+    if (IS_LOGGED_IN) return;
+    const tg = (window.Telegram && window.Telegram.WebApp) ? window.Telegram.WebApp : null;
+    if (!tg) return;
+    try { tg.ready(); tg.expand(); } catch (e) {}
+    let user = null;
+    try {
+      if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
+        user = tg.initDataUnsafe.user;
+      } else if (tg.initData) {
+        const initData = new URLSearchParams(tg.initData);
+        const userParam = initData.get('user');
+        if (userParam) user = JSON.parse(decodeURIComponent(userParam));
+      }
+    } catch (e) {
+      // ignore
+    }
+    if (user && user.id) {
+      const params = new URLSearchParams({
+        telegram_id: user.id,
+        username: user.username || user.first_name || ('User' + user.id)
+      });
+      const target = '/login?' + params.toString();
+      const onLogin = window.location.pathname === '/login';
+      const alreadyWithParams = onLogin && window.location.search.includes('telegram_id=');
+      if (!alreadyWithParams) {
+        window.location.replace(target);
+      }
     }
   });
 })();
