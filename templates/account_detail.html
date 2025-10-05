@@ -12,6 +12,9 @@
     </div>
 </div>
 
+<!-- Meta holder to pass values safely into JS -->
+<div id="accountMeta" data-account-id="{{ account.id }}" data-account-balance="{{ account.balance }}" hidden></div>
+
 <div class="row mt-3">
     <div class="col-md-8">
         <div class="card">
@@ -105,6 +108,20 @@
                     <p class="text-muted">Нет транзакций</p>
                 </div>
                 {% endif %}
+            </div>
+        </div>
+        
+        <!-- Диаграмма распределения по секторам для этого счета -->
+        <div class="card mt-4 glass-card chart-card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Структура по секторам (счет)</h5>
+                <small class="text-muted">По текущей стоимости</small>
+            </div>
+            <div class="card-body">
+                <div class="chart-wrapper">
+                    <canvas id="accountSectorChart"></canvas>
+                    <div id="accountSectorEmpty" class="text-muted small d-none">Нет позиций для построения диаграммы</div>
+                </div>
             </div>
         </div>
     </div>
@@ -216,6 +233,10 @@
 </div>
 
 <script>
+var __meta = document.getElementById('accountMeta');
+var ACCOUNT_ID = __meta ? Number(__meta.dataset.accountId) : 0;
+var ACCOUNT_BALANCE = __meta ? Number(__meta.dataset.accountBalance) : 0;
+
 function submitDeposit() {
     const amount = document.getElementById('depositAmount').value;
     
@@ -229,10 +250,7 @@ function submitDeposit() {
         headers: {
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-            account_id: {{ account.id }},
-            amount: amount
-        })
+        body: JSON.stringify({ account_id: ACCOUNT_ID, amount: Number(amount) })
     })
     .then(response => response.json())
     .then(data => {
@@ -256,7 +274,7 @@ function submitWithdraw() {
         return;
     }
     
-    if (amount > {{ account.balance }}) {
+    if (Number(amount) > ACCOUNT_BALANCE) {
         alert('Недостаточно средств на счете');
         return;
     }
@@ -266,10 +284,7 @@ function submitWithdraw() {
         headers: {
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-            account_id: {{ account.id }},
-            amount: amount
-        })
+        body: JSON.stringify({ account_id: ACCOUNT_ID, amount: Number(amount) })
     })
     .then(response => response.json())
     .then(data => {
@@ -284,5 +299,45 @@ function submitWithdraw() {
         alert('Произошла ошибка: ' + error);
     });
 }
+</script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  try {
+    const ctx = document.getElementById('accountSectorChart');
+    if (!ctx) return;
+    const positions = [
+      {% for p in (account_stats.positions or []) %}
+      { sector: {{ (p.stock.sector or 'Прочие')|tojson }}, value: {{ (p.current_value or 0)|round(2) }} },
+      {% endfor %}
+    ];
+    const totals = {};
+    positions.forEach(it => {
+      const key = it.sector || 'Прочие';
+      totals[key] = (totals[key] || 0) + (Number(it.value) || 0);
+    });
+    const entries = Object.entries(totals).filter(([,v]) => v > 0).sort((a,b)=>b[1]-a[1]);
+    const labels = entries.map(e=>e[0]);
+    const data = entries.map(e=>Number(e[1].toFixed(2)));
+    if (data.length === 0) {
+      var _ase = document.getElementById('accountSectorEmpty');
+      if (_ase) { _ase.classList.remove('d-none'); }
+      return;
+    }
+    const palette = ['#6366F1','#22C55E','#F59E0B','#EF4444','#3B82F6','#10B981','#EAB308','#8B5CF6','#F97316','#14B8A6'];
+    new Chart(ctx, {
+      type: 'doughnut',
+      data: { labels, datasets: [{ data, backgroundColor: labels.map((_,i)=> palette[i%palette.length]), borderWidth: 1 }] },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { position: 'bottom' },
+          tooltip: { callbacks: { label: (c)=> `${c.label}: ${c.raw.toLocaleString('ru-RU',{maximumFractionDigits:2})} ₽` } }
+        },
+        cutout: '60%'
+      }
+    });
+  } catch(e) { console.warn('Account sector chart error', e); }
+});
 </script>
 {% endblock %}

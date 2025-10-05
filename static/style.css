@@ -1156,6 +1156,23 @@ footer {
     color: white;
 }
 
+/* Ensure background stays within crypto section and doesn't block clicks */
+.crypto-coming-soon { position: relative; overflow: hidden; border-radius: 16px; }
+
+/* Modern primary Buy button */
+.btn-buy {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff !important;
+  border: none !important;
+  border-radius: 12px !important;
+  padding: 0.75rem 1rem !important;
+  font-weight: 600 !important;
+  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.35);
+  transition: transform .15s ease, box-shadow .2s ease, filter .2s ease;
+}
+.btn-buy:hover { transform: translateY(-1px); filter: brightness(1.03); box-shadow: 0 10px 24px rgba(102,126,234,.45); }
+.btn-buy:active { transform: translateY(0); filter: brightness(0.98); box-shadow: 0 4px 12px rgba(102,126,234,.3); }
+
 .rocket-icon {
     font-size: 5rem;
     margin-bottom: 2rem;
@@ -1409,18 +1426,20 @@ footer {
     min-height: 100vh;
 }
 
-.space-background-full {
+.space-background {
     position: absolute;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
     overflow: hidden;
+    pointer-events: none;
     z-index: 0;
 }
 
 .crypto-page-content {
     position: relative;
+{{ ... }}
     z-index: 1;
     color: white;
 }

@@ -23,7 +23,7 @@
 
 <div class="row">
     <div class="col-lg-9 col-md-8">
-        <div class="card">
+        <div class="card mb-3">
             <div class="card-body">
                 <div class="d-flex align-items-center mb-4">
                     {% if stock.logo_url %}
@@ -176,7 +176,7 @@
         </div>
     </div>
     
-    <div class="col-lg-3 col-md-4">
+    <div class="col-lg-3 col-md-4 mt-3 mt-md-0">
         <!-- Новости по бумаге (в сайдбаре) -->
         <div class="card mb-3">
             <div class="card-header d-flex justify-content-between align-items-center">
@@ -200,7 +200,7 @@
             </div>
             <div class="card-body py-3">
                 <div class="d-grid gap-3">
-                    <button class="btn btn-success btn-md w-100" data-bs-toggle="modal" data-bs-target="#buyModal">
+                    <button class="btn btn-buy btn-lg w-100" data-bs-toggle="modal" data-bs-target="#buyModal">
                         <i class="fas fa-shopping-cart me-2"></i>Купить сейчас
                     </button>
                     <button class="btn btn-outline-primary btn-md w-100" data-bs-toggle="modal" data-bs-target="#historicalBuyModal">
@@ -225,7 +225,7 @@
     </div>
 </div>
 
-{% if session.user_id %}
+{% if session.get('user_id') %}
 <!-- Modal для покупки -->
 <div class="modal fade" id="buyModal" tabindex="-1">
     <div class="modal-dialog">
@@ -386,6 +386,19 @@
         font-size: 0.75rem;
     }
 }
+
+/* News skeleton */
+.news-skeleton-line {
+    height: 12px;
+    border-radius: 6px;
+    background: linear-gradient(90deg, #e9ecef 0%, #f8f9fa 50%, #e9ecef 100%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+}
+@keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
 </style>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -399,6 +412,19 @@ document.addEventListener('DOMContentLoaded', function() {
     // Init chart and news
     if (typeof initChart === 'function') initChart();
     if (typeof loadNews === 'function') loadNews();
+    // Preload accounts if user is logged in and modal exists
+    if (document.getElementById('buyModal')) {
+        try { loadAccounts(); } catch (e) {}
+        // Refresh accounts on modal open
+        const buyM = document.getElementById('buyModal');
+        buyM.addEventListener('show.bs.modal', function() {
+            try { loadAccounts(); } catch (e) {}
+        });
+        const histM = document.getElementById('historicalBuyModal');
+        if (histM) histM.addEventListener('show.bs.modal', function() { try { loadAccounts(); } catch (e) {} });
+        const sellM = document.getElementById('sellModal');
+        if (sellM) sellM.addEventListener('show.bs.modal', function() { try { loadAccounts(); } catch (e) {} });
+    }
     // Auto-update price every 2 minutes
     if (typeof updatePrice === 'function') {
         if (window.priceUpdater) clearInterval(window.priceUpdater);
@@ -424,6 +450,45 @@ let priceChart = null;
 let priceHistory = [];
 let currentTimeframe = '1D';
 let chartUpdateInterval = null;
+
+// Загрузка новостей для тикера
+function loadNews() {
+    const list = document.getElementById('newsList');
+    const skeleton = document.getElementById('newsSkeleton');
+    const empty = document.getElementById('newsEmpty');
+    if (!list) return;
+    if (skeleton) skeleton.classList.remove('d-none');
+    if (empty) empty.classList.add('d-none');
+    fetch(`/api/news/${ticker}`)
+      .then(r => r.json())
+      .then(data => {
+        list.innerHTML = '';
+        if (data && data.success && Array.isArray(data.items) && data.items.length) {
+            data.items.forEach(item => {
+                const li = document.createElement('li');
+                li.className = 'list-group-item';
+                const a = document.createElement('a');
+                a.href = item.url || '#';
+                a.target = '_blank';
+                a.rel = 'noopener';
+                a.className = 'text-decoration-none';
+                a.textContent = item.title || 'Новость';
+                li.appendChild(a);
+                if (item.published_at) {
+                    const small = document.createElement('div');
+                    small.className = 'small text-muted mt-1';
+                    try { small.textContent = new Date(item.published_at).toLocaleString('ru-RU'); } catch (e) { small.textContent = item.published_at; }
+                    li.appendChild(small);
+                }
+                list.appendChild(li);
+            });
+        } else {
+            if (empty) empty.classList.remove('d-none');
+        }
+      })
+      .catch(() => { if (empty) empty.classList.remove('d-none'); })
+      .finally(() => { if (skeleton) skeleton.classList.add('d-none'); });
+}
 
 // Детерминированный генератор случайных чисел (seeded random)
 function seededRandom(seed) {

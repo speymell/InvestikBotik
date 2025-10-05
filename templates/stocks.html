@@ -24,26 +24,22 @@
                 <i class="fas fa-rocket me-2"></i>Crypto
             </button>
         </div>
-
-        <!-- Сортировка -->
-        <div class="d-flex align-items-center">
-            <label class="me-2 text-muted d-none d-sm-inline">Сортировать:</label>
-            <select class="form-select form-select-sm" id="sortSelect" onchange="onSortChange(this.value)">
-                <option value="price_desc" {{ 'selected' if sort=='price_desc' else '' }}>Цена ↓</option>
-                <option value="price_asc" {{ 'selected' if sort=='price_asc' else '' }}>Цена ↑</option>
-                <option value="name_asc" {{ 'selected' if sort=='name_asc' else '' }}>Название A→Я</option>
-                <option value="name_desc" {{ 'selected' if sort=='name_desc' else '' }}>Название Я→A</option>
-                <option value="ticker_asc" {{ 'selected' if sort=='ticker_asc' else '' }}>Тикер A→Я</option>
-                <option value="ticker_desc" {{ 'selected' if sort=='ticker_desc' else '' }}>Тикер Я→A</option>
-                <option value="sector_asc" {{ 'selected' if sort=='sector_asc' else '' }}>Сектор A→Я</option>
-                <option value="sector_desc" {{ 'selected' if sort=='sector_desc' else '' }}>Сектор Я→A</option>
-                <option value="turnover_desc" {{ 'selected' if sort=='turnover_desc' else '' }}>Оборот ↓</option>
-                <option value="turnover_asc" {{ 'selected' if sort=='turnover_asc' else '' }}>Оборот ↑</option>
-                <option value="volume_desc" {{ 'selected' if sort=='volume_desc' else '' }}>Объём ↓</option>
-                <option value="volume_asc" {{ 'selected' if sort=='volume_asc' else '' }}>Объём ↑</option>
-                <option value="change_desc" {{ 'selected' if sort=='change_desc' else '' }}>Изм. % ↓</option>
-                <option value="change_asc" {{ 'selected' if sort=='change_asc' else '' }}>Изм. % ↑</option>
+        
+        <!-- Сортировка: поле + направление -->
+        <div class="d-flex align-items-center sort-controls">
+            <label class="me-2 text-muted d-none d-sm-inline">Сортировка:</label>
+            <select class="form-select form-select-sm" id="sortFieldSelect">
+                <option value="price">Цена</option>
+                <option value="change">Изм. %</option>
+                <option value="turnover">Оборот</option>
+                <option value="volume">Объём</option>
+                <option value="name">Название</option>
+                <option value="ticker">Тикер</option>
+                <option value="sector">Сектор</option>
             </select>
+            <button class="btn btn-outline-secondary btn-sm ms-2" id="sortDirBtn" type="button" onclick="toggleSortDir()" title="Переключить направление">
+                <i class="fas" id="sortDirIcon"></i>
+            </button>
         </div>
     </div>
 </div>
@@ -292,13 +288,27 @@ function scrollTurnover(dir) {
     track.scrollBy({ left: dir * step, behavior: 'smooth' });
 }
 
-function onSortChange(val) {
+// Новая сортировка: поле + направление
+const initialSort = {{ sort|tojson }};
+function parseSort(s) {
+    const m = (s || '').match(/^(price|name|ticker|sector|turnover|volume|change)_(asc|desc)$/);
+    return m ? {field: m[1], dir: m[2]} : {field: 'price', dir: 'desc'};
+}
+function sortKey(field, dir) { return `${field}_${dir}`; }
+function applySort(field, dir) {
     const params = new URLSearchParams(window.location.search);
-    params.set('sort', val);
-    params.set('type', '{{ ins_type }}');
-    const searchVal = document.querySelector('input[name="search"]').value || '{{ search }}';
+    params.set('sort', sortKey(field, dir));
+    params.set('type', {{ ins_type|tojson }});
+    const searchInput = document.querySelector('input[name="search"]');
+    const searchVal = (searchInput && searchInput.value) ? searchInput.value : {{ search|tojson }};
     if (searchVal) params.set('search', searchVal);
     window.location.href = `{{ url_for('stocks') }}?` + params.toString();
+}
+function toggleSortDir() {
+    const fieldSel = document.getElementById('sortFieldSelect');
+    const icon = document.getElementById('sortDirIcon');
+    let dir = icon.dataset.dir === 'asc' ? 'desc' : 'asc';
+    applySort(fieldSel.value, dir);
 }
 
 async function syncBonds(ev) {
@@ -358,6 +368,21 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Запускаем автоматическое обновление цен
     startPriceUpdates();
+
+    // Инициализация сортировки UI
+    const {field, dir} = parseSort(initialSort);
+    const fieldSel = document.getElementById('sortFieldSelect');
+    if (fieldSel) {
+        fieldSel.value = field;
+        fieldSel.addEventListener('change', function(){
+            applySort(this.value, document.getElementById('sortDirIcon').dataset.dir || dir);
+        });
+    }
+    const icon = document.getElementById('sortDirIcon');
+    if (icon) {
+        icon.className = 'fas ' + (dir === 'desc' ? 'fa-arrow-down-wide-short' : 'fa-arrow-up-short-wide');
+        icon.dataset.dir = dir;
+    }
 });
 
 // Автоматическое обновление цен

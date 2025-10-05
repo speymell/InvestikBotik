@@ -1,6 +1,6 @@
 from flask import render_template, request, jsonify, redirect, url_for, session
 from database import db, User, Account, Stock, Transaction
-from utils import calculate_portfolio_stats, get_top_stocks
+from utils import calculate_portfolio_stats, get_top_stocks, calculate_account_stats
 import datetime
 import logging
 
@@ -716,7 +716,30 @@ def init_routes(app):
                     t.timestamp = _dt.datetime.now()
         except Exception:
             pass
-        return render_template('account_detail.html', account=acc, transactions=transactions)
+        # Статистика по счету для диаграмм
+        try:
+            account_stats = calculate_account_stats(acc.id) or {'positions': []}
+        except Exception:
+            account_stats = {'positions': []}
+        # Сектора и значения по текущей стоимости
+        try:
+            sector_totals = {}
+            for pos in account_stats.get('positions', []):
+                try:
+                    stock_obj = pos.get('stock') if isinstance(pos, dict) else None
+                    sector = getattr(stock_obj, 'sector', None) if stock_obj is not None else None
+                    key = sector or 'Прочие'
+                    val = float(pos.get('current_value', 0.0) if isinstance(pos, dict) else 0.0)
+                    if val > 0:
+                        sector_totals[key] = sector_totals.get(key, 0.0) + val
+                except Exception:
+                    continue
+            ordered = sorted(sector_totals.items(), key=lambda x: x[1], reverse=True)
+            sector_labels = [k for k, _ in ordered]
+            sector_values = [round(v, 2) for _, v in ordered]
+        except Exception:
+            sector_labels, sector_values = [], []
+        return render_template('account_detail.html', account=acc, transactions=transactions, account_stats=account_stats, sector_labels=sector_labels, sector_values=sector_values)
 
     @app.route('/stocks')
     def stocks():
@@ -854,11 +877,27 @@ def init_routes(app):
         if 'user_id' in session:
             accounts = Account.query.filter_by(user_id=session['user_id']).all()
 
-        # Топ по обороту за сегодня (только для акций)
+        # Топ по обороту за сегодня (только для акций) с дедупликацией по компании
         top_by_turnover = []
         try:
             if ins_type == 'share':
-                top_by_turnover = Stock.query.filter(Stock.turnover != None, Stock.turnover > 0).order_by(Stock.turnover.desc()).limit(12).all()
+                # Берем больше, затем агрегируем и оставляем лучшие 12
+                raw_top = Stock.query.filter(Stock.turnover != None, Stock.turnover > 0)
+                raw_top = raw_top.order_by(Stock.turnover.desc()).limit(50).all()
+                import re
+                def norm_company_key(st):
+                    name = (getattr(st, 'name', None) or getattr(st, 'ticker', '') or '').lower()
+                    base = re.sub(r'[^a-zа-я0-9]+', '', name)
+                    # Явные синонимы
+                    if 'yandex' in base or 'яндекс' in base:
+                        return 'yandex'
+                    return base or (st.ticker or '').upper()
+                best = {}
+                for s in raw_top:
+                    k = norm_company_key(s)
+                    if k not in best or (s.turnover or 0) > (getattr(best[k], 'turnover', 0) or 0):
+                        best[k] = s
+                top_by_turnover = sorted(best.values(), key=lambda x: (x.turnover or 0), reverse=True)[:12]
         except Exception:
             top_by_turnover = []
 
