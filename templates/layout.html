@@ -19,6 +19,21 @@
             console.log('Telegram Web App инициализирован');
         }
     </script>
+    <!-- Early theme bootstrap to avoid white flash before JS initializes -->
+    <script>
+      (function() {
+        try {
+          var t = localStorage.getItem('theme');
+          if (!t && window.Telegram && window.Telegram.WebApp) {
+            t = window.Telegram.WebApp.colorScheme;
+          }
+          var theme = (t === 'dark') ? 'dark' : 'light';
+          document.documentElement.setAttribute('data-theme', theme);
+          var meta = document.getElementById('themeColor');
+          if (meta) meta.setAttribute('content', theme === 'dark' ? '#1a202c' : '#f5f7fa');
+        } catch (e) {}
+      })();
+    </script>
     
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
@@ -30,51 +45,50 @@
 <nav class="navbar navbar-expand-lg glass-nav">
   <div class="container">
     <!-- Логотип -->
-    <a class="navbar-brand d-flex align-items-center" href="/">
-      <!-- <div class="brand-icon me-2">
-        <i class="fas fa-chart-line"></i>
-      </div> -->
-      <span class="brand-text">InvestBot</span>
-    </a>
+    <!-- <a class="navbar-brand d-flex align-items-center" href="/"> -->
+    <!--   <div class="brand-icon me-2"> -->
+    <!--     <i class="fas fa-chart-line"></i> -->
+    <!--   </div> -->
+    <!--   <span class="brand-text">InvestBot</span> -->
+    <!-- </a> -->
 
     <!-- Переключатель темы и кнопка меню -->
-    <div class="d-flex align-items-center">
-      <button class="theme-toggle-nav me-2" onclick="toggleTheme()" title="Переключить тему">
-        <i class="fas fa-moon" id="themeIcon"></i>
-      </button>
-      
-      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-        <span class="navbar-toggler-icon"></span>
-      </button>
-    </div>
+    <!-- <div class="d-flex align-items-center"> -->
+    <!--   <button class="theme-toggle-nav me-2" onclick="toggleTheme()" title="Переключить тему"> -->
+    <!--     <i class="fas fa-moon" id="themeIcon"></i> -->
+    <!--   </button> -->
+    <!--   <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"> -->
+    <!--     <span class="navbar-toggler-icon"></span> -->
+    <!--   </button> -->
+    <!-- </div> -->
 
     <!-- Меню навигации -->
-    <div class="collapse navbar-collapse" id="navbarNav">
-      <ul class="navbar-nav ms-auto">
-        <li class="nav-item">
-          <a class="nav-link" href="{{ url_for('index') }}">
-            <i class="fas fa-home me-1"></i>Главная
-          </a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" href="{{ url_for('dashboard') }}">
-            <i class="fas fa-briefcase me-1"></i>Портфель
-          </a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" href="{{ url_for('stocks') }}">
-            <i class="fas fa-chart-bar me-1"></i>Акции
-          </a>
-        </li>
-      </ul>
-    </div>
+    <!-- <div class="collapse navbar-collapse" id="navbarNav"> -->
+    <!--   <ul class="navbar-nav ms-auto"> -->
+    <!--     <li class="nav-item"> -->
+    <!--       <a class="nav-link" href="{{ url_for('index') }}"> -->
+    <!--         <i class="fas fa-home me-1"></i>Главная -->
+    <!--       </a> -->
+    <!--     </li> -->
+    <!--     <li class="nav-item"> -->
+    <!--       <a class="nav-link" href="{{ url_for('dashboard') }}"> -->
+    <!--         <i class="fas fa-briefcase me-1"></i>Портфель -->
+    <!--       </a> -->
+    <!--     </li> -->
+    <!--     <li class="nav-item"> -->
+    <!--       <a class="nav-link" href="{{ url_for('stocks') }}"> -->
+    <!--         <i class="fas fa-chart-bar me-1"></i>Акции -->
+    <!--       </a> -->
+    <!--     </li> -->
+    <!--   </ul> -->
+    <!-- </div> -->
   </div>
 </nav>
 
 <div class="container mt-4 page-surface">
     {% block content %}
     {% endblock %}
-</div>
+  </div>
 
 <!-- Bottom Tab Bar (mobile only) -->
 <nav class="tabbar d-md-none">
@@ -90,13 +104,17 @@
     <i class="fas fa-briefcase"></i>
     <span>Портфель</span>
   </a>
+  <a href="#" class="tabbar-item" onclick="toggleTheme(); return false;" title="Тема">
+    <i class="fas fa-moon" id="themeIcon"></i>
+    <span>Тема</span>
+  </a>
 </nav>
 
 <div class="container">
   <footer class="py-3 my-4">
     <p class="text-center text-muted">&copy; 2025 Polygalov V.</p>
   </footer>
-</div>
+  </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 

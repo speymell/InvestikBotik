@@ -373,6 +373,45 @@ class StockAPIService:
         
         return fallback_stocks
     
+    def _get_fallback_bonds(self):
+        """Резервный список облигаций (OFZ) на случай недоступности API."""
+        try:
+            items = [
+                {
+                    'ticker': 'SU26238RMFS6',
+                    'name': 'ОФЗ 26238',
+                    'face_value': 1000.0,
+                    'price': 990.0,
+                    'sector': 'Облигации',
+                    'description': 'Гос. облигация федерального займа 26238',
+                    'logo_url': self._get_logo_url('SU26238RMFS6'),
+                    'instrument_type': 'bond'
+                },
+                {
+                    'ticker': 'SU26239RMFS7',
+                    'name': 'ОФЗ 26239',
+                    'face_value': 1000.0,
+                    'price': 1012.5,
+                    'sector': 'Облигации',
+                    'description': 'Гос. облигация федерального займа 26239',
+                    'logo_url': self._get_logo_url('SU26239RMFS7'),
+                    'instrument_type': 'bond'
+                },
+                {
+                    'ticker': 'SU26240RMFS5',
+                    'name': 'ОФЗ 26240',
+                    'face_value': 1000.0,
+                    'price': 975.3,
+                    'sector': 'Облигации',
+                    'description': 'Гос. облигация федерального займа 26240',
+                    'logo_url': self._get_logo_url('SU26240RMFS5'),
+                    'instrument_type': 'bond'
+                }
+            ]
+            return items
+        except Exception:
+            return []
+    
     def get_stock_history(self, ticker, days=1):
         """Получает историю цен акции с MOEX"""
         try:
@@ -1055,8 +1094,11 @@ class StockAPIService:
         try:
             bonds_data = self.get_all_bonds()
             if not bonds_data:
-                logger.error("Не удалось получить данные об облигациях")
-                return {'success': False, 'error': 'no_data'}
+                logger.warning("MOEX bonds API вернул пусто. Используем fallback облигации.")
+                bonds_data = self._get_fallback_bonds()
+                if not bonds_data:
+                    logger.error("Не удалось получить данные об облигациях и fallback пуст")
+                    return {'success': False, 'error': 'no_data'}
 
             added_count = 0
             updated_count = 0
@@ -1070,10 +1112,14 @@ class StockAPIService:
                         existing.description = bond.get('description') or existing.description
                         existing.logo_url = bond.get('logo_url') or existing.logo_url
                         # Новые поля
-                        if hasattr(existing, 'instrument_type'):
+                        try:
                             existing.instrument_type = 'bond'
-                        if hasattr(existing, 'face_value'):
+                        except Exception:
+                            pass
+                        try:
                             existing.face_value = bond.get('face_value')
+                        except Exception:
+                            pass
                         updated_count += 1
                     else:
                         new_sec = Stock(

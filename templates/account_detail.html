@@ -35,6 +35,95 @@
             </div>
         </div>
         
+        <!-- Позиции по счету -->
+        <div class="card mt-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Позиции на счете</h5>
+                <small class="text-muted">Текущая стоимость по ценам рынка</small>
+            </div>
+            <div class="card-body">
+                {% if account_stats and account_stats.positions %}
+                <div class="table-responsive d-none d-md-block">
+                    <table class="table table-hover align-middle">
+                        <thead>
+                            <tr>
+                                <th>Инструмент</th>
+                                <th class="text-center" style="width: 130px;">Количество</th>
+                                <th class="text-end" style="width: 150px;">Средняя цена</th>
+                                <th class="text-end" style="width: 150px;">Текущая цена</th>
+                                <th class="text-end" style="width: 170px;">Текущая стоимость</th>
+                                <th class="text-end" style="width: 170px;">P/L</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for p in account_stats.positions %}
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <img src="{{ p.stock.logo_url or ('https://ui-avatars.com/api/?name=' ~ p.stock.ticker ~ '&background=007bff&color=fff&size=32') }}"
+                                             alt="{{ p.stock.ticker }}" class="stock-logo" style="width: 32px; height: 32px; border-radius: 6px; object-fit: contain;">
+                                        <div>
+                                            <a class="text-decoration-none" href="{{ url_for('stock_detail', ticker=p.stock.ticker) }}">
+                                                <strong>{{ p.stock.ticker }}</strong>
+                                            </a><br>
+                                            <small class="text-muted">{{ p.stock.name[:30] }}{% if p.stock.name|length > 30 %}...{% endif %}</small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="text-center">{{ p.quantity }} шт.</td>
+                                <td class="text-end">{{ '%.2f'|format(p.avg_price) }} ₽</td>
+                                <td class="text-end">{{ '%.2f'|format(p.stock.price or 0) }} ₽</td>
+                                <td class="text-end">{{ '%.2f'|format(p.current_value) }} ₽</td>
+                                <td class="text-end {% if p.profit_loss >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                    {{ '%.2f'|format(p.profit_loss) }} ₽
+                                    <small>({{ '%.1f'|format(p.profit_loss_percent) }}%)</small>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Мобильная версия -->
+                <div class="d-md-none">
+                    {% for p in account_stats.positions %}
+                    <div class="border rounded p-2 mb-2">
+                        <div class="d-flex align-items-center justify-content-between">
+                            <div class="d-flex align-items-center gap-2">
+                                <img src="{{ p.stock.logo_url or ('https://ui-avatars.com/api/?name=' ~ p.stock.ticker ~ '&background=007bff&color=fff&size=40') }}"
+                                     alt="{{ p.stock.ticker }}" style="width: 36px; height: 36px; border-radius: 6px; object-fit: contain;">
+                                <div>
+                                    <a class="text-decoration-none" href="{{ url_for('stock_detail', ticker=p.stock.ticker) }}">
+                                        <strong>{{ p.stock.ticker }}</strong>
+                                    </a>
+                                    <div class="small text-muted">{{ p.stock.name[:30] }}{% if p.stock.name|length > 30 %}...{% endif %}</div>
+                                </div>
+                            </div>
+                            <div class="text-end small">
+                                <div>{{ p.quantity }} шт.</div>
+                                <div>ср. {{ '%.2f'|format(p.avg_price) }} ₽</div>
+                            </div>
+                        </div>
+                        <div class="d-flex justify-content-between mt-2 small">
+                            <div class="text-muted">Текущая: {{ '%.2f'|format(p.stock.price or 0) }} ₽</div>
+                            <div class="{% if p.profit_loss >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                {{ '%.0f'|format(p.current_value) }} ₽ · {{ '%.1f'|format(p.profit_loss_percent) }}%
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <p class="text-muted mb-1">На этом счете пока нет позиций</p>
+                    <a href="{{ url_for('stocks') }}" class="btn btn-outline-primary btn-sm">
+                        <i class="fas fa-chart-line me-1"></i>К списку инструментов
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
         <div class="card mt-4">
             <div class="card-header">
                 <h5>История транзакций</h5>
