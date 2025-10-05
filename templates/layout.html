@@ -2,10 +2,12 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport"
-          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>InvestBot</title>
+    <meta name="theme-color" content="#f5f7fa" id="themeColor">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
     
     <!-- Telegram Web App Script - ДОЛЖЕН БЫТЬ ПЕРВЫМ! -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
@@ -74,6 +76,22 @@
     {% endblock %}
 </div>
 
+<!-- Bottom Tab Bar (mobile only) -->
+<nav class="tabbar d-md-none">
+  <a href="{{ url_for('index') }}" class="tabbar-item {% if request.endpoint == 'index' %}active{% endif %}">
+    <i class="fas fa-home"></i>
+    <span>Главная</span>
+  </a>
+  <a href="{{ url_for('stocks') }}" class="tabbar-item {% if request.endpoint in ['stocks', 'stock_detail'] %}active{% endif %}">
+    <i class="fas fa-chart-bar"></i>
+    <span>Акции</span>
+  </a>
+  <a href="{{ url_for('dashboard') }}" class="tabbar-item {% if request.endpoint == 'dashboard' %}active{% endif %}">
+    <i class="fas fa-briefcase"></i>
+    <span>Портфель</span>
+  </a>
+</nav>
+
 <div class="container">
   <footer class="py-3 my-4">
     <p class="text-center text-muted">&copy; 2025 Polygalov V.</p>
@@ -112,6 +130,60 @@ document.addEventListener('DOMContentLoaded', function() {
         themeIcon.className = 'fas fa-moon';
     }
 });
+</script>
+
+<!-- Telegram theme sync, theme-color updater and haptics -->
+<script>
+(function() {
+  function setThemeColor(color) {
+    const meta = document.getElementById('themeColor');
+    if (meta && color) meta.setAttribute('content', color);
+  }
+
+  function applyTheme(theme, preferTelegramParams) {
+    const t = theme === 'dark' ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', t);
+
+    // sync icon
+    const themeIcon = document.getElementById('themeIcon');
+    if (themeIcon) themeIcon.className = t === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+
+    // theme-color for status bar / browser UI
+    if (preferTelegramParams && window.Telegram?.WebApp?.themeParams) {
+      const tp = window.Telegram.WebApp.themeParams;
+      const bg = tp.secondary_bg_color || tp.bg_color;
+      if (bg) return setThemeColor(bg);
+    }
+    setThemeColor(t === 'dark' ? '#1a202c' : '#f5f7fa');
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    // Telegram theme and haptics
+    if (window.Telegram && window.Telegram.WebApp) {
+      const tg = window.Telegram.WebApp;
+      try { tg.ready(); tg.expand(); } catch (e) {}
+
+      applyTheme(tg.colorScheme, true);
+
+      // Listen to theme changes from Telegram
+      try { tg.onEvent('themeChanged', () => applyTheme(tg.colorScheme, true)); } catch (e) {}
+
+      // Haptic feedback on tap
+      if (tg.HapticFeedback) {
+        document.body.addEventListener('click', function(ev) {
+          const el = ev.target.closest('.btn, .nav-link, .tabbar-item');
+          if (el) {
+            try { tg.HapticFeedback.impactOccurred('light'); } catch (e) {}
+          }
+        }, { passive: true });
+      }
+    } else {
+      // Fallback: ensure theme-color matches current data-theme
+      const current = document.documentElement.getAttribute('data-theme') || 'light';
+      applyTheme(current, false);
+    }
+  });
+})();
 </script>
 
 </body>
