@@ -1332,8 +1332,8 @@ footer {
     }
 }
 [data-theme="dark"] .page-surface {
-    background: rgba(45,55,72,0.55);
-    box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+    /*background: rgba(45,55,72,0.55);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.35);*/
 }
 
 .glass-card {
