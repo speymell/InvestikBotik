@@ -1,5 +1,5 @@
 from flask import render_template, request, jsonify, redirect, url_for, session
-from database import db, User, Account, Stock, Transaction
+from database import db, User, Account, Stock, Transaction, Watchlist, Alert
 from utils import calculate_portfolio_stats, get_top_stocks, calculate_account_stats
 import datetime
 import logging
@@ -282,6 +282,19 @@ def init_routes(app):
             except Exception:
                 pass
             return jsonify({'status': 'error', 'message': f'Migration error: {str(e)}'})
+
+    @app.route('/admin/init-db-extra')
+    def init_db_extra():
+        """Инициализация дополнительных таблиц (Watchlist, Alert)"""
+        try:
+            db.create_all()
+            return jsonify({'status': 'success', 'message': 'DB tables ensured (create_all)'}), 200
+        except Exception as e:
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
+            return jsonify({'status': 'error', 'message': str(e)}), 500
     
     @app.route('/add_stocks')
     def add_stocks():
@@ -1004,6 +1017,12 @@ def init_routes(app):
     app.add_url_rule('/api/update_all_prices', view_func=update_all_prices)
     app.add_url_rule('/admin/sync-bonds', view_func=sync_bonds)
     app.add_url_rule('/api/portfolio_history', view_func=get_portfolio_history)
+    # Watchlist & Alerts
+    app.add_url_rule('/api/watchlist/toggle', view_func=toggle_watchlist, methods=['POST'])
+    app.add_url_rule('/api/watchlist', view_func=get_watchlist)
+    app.add_url_rule('/api/alerts', view_func=list_alerts)
+    app.add_url_rule('/api/alerts/create', view_func=create_alert, methods=['POST'])
+    app.add_url_rule('/api/alerts/check', view_func=check_alerts, methods=['POST'])
     
 def deposit():
     """API для пополнения счета"""
@@ -1045,6 +1064,102 @@ def deposit():
     db.session.commit()
     
     return jsonify({'success': True, 'new_balance': account.balance})
+
+def toggle_watchlist():
+    """Добавить/удалить бумагу из избранного (watchlist)"""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    try:
+        data = request.get_json(force=True)
+        stock_id = int(data.get('stock_id'))
+    except Exception as e:
+        return jsonify({'error': f'Некорректные данные: {e}'}), 400
+    stock = Stock.query.get(stock_id)
+    if not stock:
+        return jsonify({'error': 'Акция не найдена'}), 404
+    item = Watchlist.query.filter_by(user_id=session['user_id'], stock_id=stock_id).first()
+    if item:
+        db.session.delete(item)
+        db.session.commit()
+        return jsonify({'success': True, 'action': 'removed'})
+    else:
+        db.session.add(Watchlist(user_id=session['user_id'], stock_id=stock_id))
+        db.session.commit()
+        return jsonify({'success': True, 'action': 'added'})
+
+def get_watchlist():
+    """Получить список избранного пользователя"""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    items = Watchlist.query.filter_by(user_id=session['user_id']).all()
+    stock_ids = [it.stock_id for it in items]
+    stocks = Stock.query.filter(Stock.id.in_(stock_ids)).all() if stock_ids else []
+    return jsonify({
+        'success': True,
+        'stock_ids': stock_ids,
+        'stocks': [{'id': s.id, 'ticker': s.ticker, 'name': s.name, 'price': s.price, 'logo_url': s.logo_url} for s in stocks]
+    })
+
+def create_alert():
+    """Создать прайс-алерт"""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    try:
+        data = request.get_json(force=True)
+        stock_id = int(data.get('stock_id'))
+        direction = data.get('direction')
+        price = float(data.get('price'))
+        if direction not in ('above', 'below'):
+            return jsonify({'error': 'Неверное направление'}), 400
+        if price <= 0:
+            return jsonify({'error': 'Цена должна быть положительной'}), 400
+    except Exception as e:
+        return jsonify({'error': f'Некорректные данные: {e}'}), 400
+    stock = Stock.query.get(stock_id)
+    if not stock:
+        return jsonify({'error': 'Акция не найдена'}), 404
+    alert = Alert(user_id=session['user_id'], stock_id=stock_id, direction=direction, price=price, active=True)
+    db.session.add(alert)
+    db.session.commit()
+    return jsonify({'success': True, 'alert_id': alert.id})
+
+def list_alerts():
+    """Список алертов пользователя"""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    alerts = Alert.query.filter_by(user_id=session['user_id']).all()
+    result = []
+    for a in alerts:
+        st = Stock.query.get(a.stock_id)
+        result.append({
+            'id': a.id,
+            'stock_id': a.stock_id,
+            'ticker': st.ticker if st else None,
+            'direction': a.direction,
+            'price': a.price,
+            'active': a.active,
+            'last_triggered_at': a.last_triggered_at.isoformat() if a.last_triggered_at else None
+        })
+    return jsonify({'success': True, 'alerts': result})
+
+def check_alerts():
+    """Проверка алертов пользователя по текущим ценам (MVP)"""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    import datetime as dt
+    alerts = Alert.query.filter_by(user_id=session['user_id'], active=True).all()
+    triggered = []
+    for a in alerts:
+        st = Stock.query.get(a.stock_id)
+        if not st or st.price is None:
+            continue
+        hit = (a.direction == 'above' and st.price >= a.price) or (a.direction == 'below' and st.price <= a.price)
+        if hit:
+            a.last_triggered_at = dt.datetime.utcnow()
+            triggered.append({'alert_id': a.id, 'ticker': st.ticker, 'price': st.price, 'direction': a.direction})
+    if triggered:
+        db.session.commit()
+    return jsonify({'success': True, 'triggered': triggered})
  
 def withdraw():
     """API для вывода средств со счета"""

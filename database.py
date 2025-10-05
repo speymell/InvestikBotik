@@ -41,3 +41,27 @@ class Transaction(db.Model):
     stock_id = db.Column(db.Integer, db.ForeignKey('stock.id'), nullable=True)
     # Relationship to access stock from transaction in templates
     stock = db.relationship('Stock', backref='transactions', lazy=True)
+
+# Избранное (Watchlist)
+class Watchlist(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    stock_id = db.Column(db.Integer, db.ForeignKey('stock.id'), nullable=False)
+    created_at = db.Column(db.DateTime, server_default=db.func.now())
+    # Уникальная пара (user, stock)
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'stock_id', name='uq_watchlist_user_stock'),
+    )
+    stock = db.relationship('Stock', lazy=True)
+
+# Алерты по цене
+class Alert(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    stock_id = db.Column(db.Integer, db.ForeignKey('stock.id'), nullable=False)
+    direction = db.Column(db.String(10), nullable=False)  # 'above' | 'below'
+    price = db.Column(db.Float, nullable=False)
+    active = db.Column(db.Boolean, nullable=False, default=True)
+    created_at = db.Column(db.DateTime, server_default=db.func.now())
+    last_triggered_at = db.Column(db.DateTime, nullable=True)
+    stock = db.relationship('Stock', lazy=True)

@@ -41,48 +41,24 @@
 </head>
 <body data-logged-in="{{ '1' if session.get('user_id') else '0' }}">
 
-<!-- Навигационная панель (скрыта) -->
-<!--
-<nav class="navbar navbar-expand-lg glass-nav">
+<!-- Desktop Navbar -->
+<nav class="navbar navbar-expand-lg glass-nav d-none d-md-block">
   <div class="container">
-    <!-- Логотип -->
-    <!-- <a class="navbar-brand d-flex align-items-center" href="/"> -->
-    <!--   <div class="brand-icon me-2"> -->
-    <!--     <i class="fas fa-chart-line"></i> -->
-    <!--   </div> -->
-    <!--   <span class="brand-text">InvestBot</span> -->
-    <!-- </a> -->
-
-    <!-- Переключатель темы и кнопка меню -->
-    <!-- <div class="d-flex align-items-center"> -->
-    <!--   <button class="theme-toggle-nav me-2" onclick="toggleTheme()" title="Переключить тему"> -->
-    <!--     <i class="fas fa-moon" id="themeIcon"></i> -->
-    <!--   </button> -->
-    <!--   <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"> -->
-    <!--     <span class="navbar-toggler-icon"></span> -->
-    <!--   </button> -->
-    <!-- </div> -->
-
-    <!-- Меню навигации -->
-    <!-- <div class="collapse navbar-collapse" id="navbarNav"> -->
-    <!--   <ul class="navbar-nav ms-auto"> -->
-    <!--     <li class="nav-item"> -->
-    <!--       <a class="nav-link" href="{{ url_for('index') }}"> -->
-    <!--         <i class="fas fa-home me-1"></i>Главная -->
-    <!--       </a> -->
-    <!--     </li> -->
-    <!--     <li class="nav-item"> -->
-    <!--       <a class="nav-link" href="{{ url_for('dashboard') }}"> -->
-    <!--         <i class="fas fa-briefcase me-1"></i>Портфель -->
-    <!--       </a> -->
-    <!--     </li> -->
-    <!--     <li class="nav-item"> -->
-    <!--       <a class="nav-link" href="{{ url_for('stocks') }}"> -->
-    <!--         <i class="fas fa-chart-bar me-1"></i>Акции -->
-    <!--       </a> -->
-    <!--     </li> -->
-    <!--   </ul> -->
-    <!-- </div> -->
+    <a class="navbar-brand d-flex align-items-center" href="{{ url_for('index') }}">
+      <div class="brand-icon me-2"><i class="fas fa-chart-line"></i></div>
+      <span class="brand-text">InvestBot</span>
+    </a>
+    <div class="ms-auto d-flex align-items-center gap-2">
+      <a class="nav-link" href="{{ url_for('dashboard') }}">
+        <i class="fas fa-briefcase me-1"></i>Портфель
+      </a>
+      <a class="nav-link" href="{{ url_for('stocks') }}">
+        <i class="fas fa-chart-bar me-1"></i>Акции
+      </a>
+      <button class="theme-toggle-nav ms-2" onclick="toggleTheme()" title="Переключить тему">
+        <i class="fas fa-moon" id="themeIconDesktop"></i>
+      </button>
+    </div>
   </div>
 </nav>
 
@@ -128,13 +104,12 @@ function toggleTheme() {
     document.documentElement.setAttribute('data-theme', newTheme);
     localStorage.setItem('theme', newTheme);
     
-    // Обновляем иконку
-    const themeIcon = document.getElementById('themeIcon');
-    if (newTheme === 'dark') {
-        themeIcon.className = 'fas fa-sun';
-    } else {
-        themeIcon.className = 'fas fa-moon';
-    }
+    // Обновляем иконки темы (mobile + desktop)
+    const iconMobile = document.getElementById('themeIcon');
+    const iconDesktop = document.getElementById('themeIconDesktop');
+    const cls = (newTheme === 'dark') ? 'fas fa-sun' : 'fas fa-moon';
+    if (iconMobile) iconMobile.className = cls;
+    if (iconDesktop) iconDesktop.className = cls;
 }
 
 // Загружаем сохраненную тему при загрузке страницы
@@ -142,12 +117,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const savedTheme = localStorage.getItem('theme') || 'light';
     document.documentElement.setAttribute('data-theme', savedTheme);
     
-    const themeIcon = document.getElementById('themeIcon');
-    if (savedTheme === 'dark') {
-        themeIcon.className = 'fas fa-sun';
-    } else {
-        themeIcon.className = 'fas fa-moon';
-    }
+    const iconMobile = document.getElementById('themeIcon');
+    const iconDesktop = document.getElementById('themeIconDesktop');
+    const cls = (savedTheme === 'dark') ? 'fas fa-sun' : 'fas fa-moon';
+    if (iconMobile) iconMobile.className = cls;
+    if (iconDesktop) iconDesktop.className = cls;
 });
 </script>
 
@@ -165,7 +139,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // sync icon
     const themeIcon = document.getElementById('themeIcon');
-    if (themeIcon) themeIcon.className = t === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+    const themeIconDesktop = document.getElementById('themeIconDesktop');
+    const cls = (t === 'dark') ? 'fas fa-sun' : 'fas fa-moon';
+    if (themeIcon) themeIcon.className = cls;
+    if (themeIconDesktop) themeIconDesktop.className = cls;
 
     // theme-color for status bar / browser UI
     if (preferTelegramParams && window.Telegram?.WebApp?.themeParams) {

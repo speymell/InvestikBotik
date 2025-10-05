@@ -109,15 +109,20 @@
                         </thead>
                         <tbody>
                             {% for stock in stocks.items %}
-                            <tr data-ticker="{{ stock.ticker }}" onclick="window.location.href='{{ url_for('stock_detail', ticker=stock.ticker) }}';" style="cursor: pointer;">
-                                <td>
+                            <tr data-ticker="{{ stock.ticker }}" data-stock-id="{{ stock.id }}" style="cursor: pointer;">
+                                <td onclick="window.location.href='{{ url_for('stock_detail', ticker=stock.ticker) }}';">
                                     <div class="d-flex align-items-center gap-2">
                                         <img src="{{ stock.logo_url or ('https://ui-avatars.com/api/?name=' ~ stock.ticker ~ '&background=007bff&color=fff&size=32') }}" 
                                              alt="{{ stock.ticker }}" class="stock-logo" style="margin-right: .5rem;">
-                                        <div>
+                                        <div class="me-2">
                                             <strong>{{ stock.ticker }}</strong><br>
                                             <small class="text-muted">{{ stock.name[:30] }}{% if stock.name|length > 30 %}...{% endif %}</small>
                                         </div>
+                                        {% if session.get('user_id') %}
+                                        <button class="btn btn-sm btn-outline-warning watch-toggle" type="button" data-stock-id="{{ stock.id }}" title="Избранное">
+                                            <i class="far fa-star"></i>
+                                        </button>
+                                        {% endif %}
                                     </div>
                                 </td>
                                 <td>
@@ -128,11 +133,23 @@
                                     {% endif %}
                                 </td>
                                 <td class="text-end">
-                                    {% if stock.price > 0 %}
-                                        <strong class="stock-price">{{ "%.2f"|format(stock.price) }} ₽</strong>
-                                    {% else %}
-                                        <span class="text-muted">Н/Д</span>
-                                    {% endif %}
+                                    <div class="d-flex justify-content-end align-items-center gap-2">
+                                        {% if stock.price > 0 %}
+                                            <strong class="stock-price">{{ "%.2f"|format(stock.price) }} ₽</strong>
+                                        {% else %}
+                                            <span class="text-muted">Н/Д</span>
+                                        {% endif %}
+                                        {% if session.get('user_id') %}
+                                        <div class="btn-group btn-group-sm" role="group" aria-label="Alerts">
+                                            <button class="btn btn-outline-secondary alert-create" type="button" data-dir="above" data-stock-id="{{ stock.id }}" title="Алерт: цена выше">
+                                                <i class="fas fa-bell"></i> ↑
+                                            </button>
+                                            <button class="btn btn-outline-secondary alert-create" type="button" data-dir="below" data-stock-id="{{ stock.id }}" title="Алерт: цена ниже">
+                                                <i class="fas fa-bell"></i> ↓
+                                            </button>
+                                        </div>
+                                        {% endif %}
+                                    </div>
                                 </td>
                             </tr>
                             {% endfor %}
@@ -143,7 +160,7 @@
                 <!-- Мобильная версия -->
                 <div class="d-block d-md-none">
                     {% for stock in stocks.items %}
-                    <div class="stock-mobile-item" data-ticker="{{ stock.ticker }}" onclick="window.location.href='{{ url_for('stock_detail', ticker=stock.ticker) }}';">
+                    <div class="stock-mobile-item" data-ticker="{{ stock.ticker }}" data-stock-id="{{ stock.id }}">
                         <div class="d-flex align-items-center">
                             <div class="stock-mobile-logo">
                                 <img src="{{ stock.logo_url or ('https://ui-avatars.com/api/?name=' ~ stock.ticker ~ '&background=007bff&color=fff&size=40') }}" 
@@ -151,7 +168,7 @@
                             </div>
                             <div class="stock-mobile-info flex-grow-1">
                                 <div class="d-flex justify-content-between align-items-start">
-                                    <div>
+                                    <div onclick="window.location.href='{{ url_for('stock_detail', ticker=stock.ticker) }}';">
                                         <div class="stock-mobile-ticker">{{ stock.ticker }}</div>
                                         <div class="stock-mobile-name">{{ stock.name[:25] }}{% if stock.name|length > 25 %}...{% endif %}</div>
                                         {% if stock.sector %}
@@ -168,6 +185,19 @@
                                                 <span class="text-muted">Н/Д</span>
                                             {% endif %}
                                         </div>
+                                        {% if session.get('user_id') %}
+                                        <div class="d-flex justify-content-end gap-1 mt-1">
+                                            <button class="btn btn-sm btn-outline-warning watch-toggle" type="button" data-stock-id="{{ stock.id }}" title="Избранное">
+                                                <i class="far fa-star"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-secondary alert-create" type="button" data-dir="above" data-stock-id="{{ stock.id }}" title="Алерт: цена выше">
+                                                <i class="fas fa-bell"></i> ↑
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-secondary alert-create" type="button" data-dir="below" data-stock-id="{{ stock.id }}" title="Алерт: цена ниже">
+                                                <i class="fas fa-bell"></i> ↓
+                                            </button>
+                                        </div>
+                                        {% endif %}
                                     </div>
                                 </div>
                             </div>
@@ -500,5 +530,60 @@ window.addEventListener('beforeunload', function() {
         clearInterval(priceUpdateInterval);
     }
 });
+</script>
+<script>
+// Watchlist and Alerts (MVP)
+document.addEventListener('DOMContentLoaded', async function() {
+  try {
+    const resp = await fetch('/api/watchlist');
+    if (resp.ok) {
+      const data = await resp.json();
+      if (data && data.success && Array.isArray(data.stock_ids)) {
+        document.querySelectorAll('.watch-toggle').forEach(btn => {
+          const sid = Number(btn.dataset.stockId);
+          if (data.stock_ids.includes(sid)) markWatch(btn, true);
+        });
+      }
+    }
+  } catch (e) {}
+
+  document.body.addEventListener('click', async function(ev) {
+    const wt = ev.target.closest('.watch-toggle');
+    if (wt) {
+      ev.preventDefault(); ev.stopPropagation();
+      const sid = Number(wt.dataset.stockId);
+      try {
+        const r = await fetch('/api/watchlist/toggle', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({stock_id: sid})});
+        const d = await r.json();
+        if (d.success) markWatch(wt, d.action === 'added');
+        else alert('Ошибка: ' + (d.error||'неизвестно'));
+      } catch (e) { alert('Ошибка сети'); }
+      return;
+    }
+    const ac = ev.target.closest('.alert-create');
+    if (ac) {
+      ev.preventDefault(); ev.stopPropagation();
+      const sid = Number(ac.dataset.stockId);
+      const dir = ac.dataset.dir;
+      const priceStr = prompt('Укажите цену для алерта (' + (dir==='above'?'выше ↑':'ниже ↓') + '):');
+      if (!priceStr) return;
+      const price = parseFloat(priceStr.replace(',', '.'));
+      if (!isFinite(price) || price <= 0) { alert('Некорректная цена'); return; }
+      try {
+        const r = await fetch('/api/alerts/create', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({stock_id: sid, direction: dir, price})});
+        const d = await r.json();
+        if (d.success) alert('Алерт создан');
+        else alert('Ошибка: ' + (d.error||'неизвестно'));
+      } catch (e) { alert('Ошибка сети'); }
+      return;
+    }
+  }, {passive:false});
+});
+
+function markWatch(btn, added) {
+  const i = btn.querySelector('i');
+  if (!i) return;
+  i.className = added ? 'fas fa-star' : 'far fa-star';
+}
 </script>
 {% endblock %}
