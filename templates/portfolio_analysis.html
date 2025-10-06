@@ -1,0 +1,341 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h2><i class="fas fa-chart-pie me-2"></i>Анализ портфеля</h2>
+        <p class="text-muted">Детальный анализ ваших инвестиций и распределения активов</p>
+    </div>
+</div>
+
+<!-- Общая статистика -->
+<div class="row mt-4">
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">Общая стоимость</h6>
+                        <h4>{{ "{:,.0f}".format(total_portfolio_value) }} ₽</h4>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-chart-line fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">Прибыль/Убыток</h6>
+                        <h4>{{ "{:+,.0f}".format(portfolio_stats.total_profit_loss) }} ₽</h4>
+                        <small>{{ "{:+.1f}".format(portfolio_stats.total_profit_loss_percent) }}%</small>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-{% if portfolio_stats.total_profit_loss >= 0 %}arrow-up{% else %}arrow-down{% endif %} fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">Количество позиций</h6>
+                        <h4>{{ positions_analysis|length }}</h4>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-list fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">Свободные средства</h6>
+                        <h4>{{ "{:,.0f}".format(portfolio_stats.total_balance) }} ₽</h4>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-wallet fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Анализ по типам инструментов -->
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-chart-donut me-2"></i>Распределение по типам</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="instrumentChart" width="400" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-industry me-2"></i>Распределение по секторам</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="sectorChart" width="400" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Топ позиций -->
+<div class="row mt-4">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h6><i class="fas fa-trophy me-2"></i>Лучшие позиции</h6>
+            </div>
+            <div class="card-body p-0">
+                {% for pos in best_positions %}
+                <div class="d-flex justify-content-between align-items-center p-3 border-bottom">
+                    <div>
+                        <strong>{{ pos.stock.ticker }}</strong>
+                        <br><small class="text-muted">{{ pos.stock.name[:30] }}...</small>
+                    </div>
+                    <div class="text-end">
+                        <span class="text-success">+{{ "{:.1f}".format(pos.profit_loss_pct) }}%</span>
+                        <br><small>{{ "{:+,.0f}".format(pos.profit_loss) }} ₽</small>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h6><i class="fas fa-weight-hanging me-2"></i>Крупнейшие позиции</h6>
+            </div>
+            <div class="card-body p-0">
+                {% for pos in top_positions %}
+                <div class="d-flex justify-content-between align-items-center p-3 border-bottom">
+                    <div>
+                        <strong>{{ pos.stock.ticker }}</strong>
+                        <br><small class="text-muted">{{ pos.quantity }} шт.</small>
+                    </div>
+                    <div class="text-end">
+                        <span>{{ "{:,.0f}".format(pos.current_value) }} ₽</span>
+                        <br><small class="{% if pos.profit_loss >= 0 %}text-success{% else %}text-danger{% endif %}">{{ "{:+.1f}".format(pos.profit_loss_pct) }}%</small>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header bg-danger text-white">
+                <h6><i class="fas fa-exclamation-triangle me-2"></i>Проблемные позиции</h6>
+            </div>
+            <div class="card-body p-0">
+                {% for pos in worst_positions %}
+                <div class="d-flex justify-content-between align-items-center p-3 border-bottom">
+                    <div>
+                        <strong>{{ pos.stock.ticker }}</strong>
+                        <br><small class="text-muted">{{ pos.stock.name[:30] }}...</small>
+                    </div>
+                    <div class="text-end">
+                        <span class="text-danger">{{ "{:.1f}".format(pos.profit_loss_pct) }}%</span>
+                        <br><small>{{ "{:+,.0f}".format(pos.profit_loss) }} ₽</small>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Детальный анализ по секторам -->
+<div class="row mt-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-table me-2"></i>Анализ по секторам</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Сектор</th>
+                                <th>Стоимость</th>
+                                <th>Доля в портфеле</th>
+                                <th>Прибыль/Убыток</th>
+                                <th>Доходность</th>
+                                <th>Позиций</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for sector, data in sector_analysis.items() %}
+                            <tr>
+                                <td><strong>{{ sector }}</strong></td>
+                                <td>{{ "{:,.0f}".format(data.value) }} ₽</td>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="progress flex-grow-1 me-2" style="height: 20px;">
+                                            <div class="progress-bar" role="progressbar" style="width: {{ data.percentage }}%"></div>
+                                        </div>
+                                        <span>{{ "{:.1f}".format(data.percentage) }}%</span>
+                                    </div>
+                                </td>
+                                <td class="{% if data.profit_loss >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                    {{ "{:+,.0f}".format(data.profit_loss) }} ₽
+                                </td>
+                                <td class="{% if data.profit_loss >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                    {{ "{:+.1f}".format((data.profit_loss / data.cost * 100) if data.cost > 0 else 0) }}%
+                                </td>
+                                <td>{{ data.positions|length }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Все позиции -->
+<div class="row mt-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-list-ul me-2"></i>Все позиции</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Тикер</th>
+                                <th>Название</th>
+                                <th>Количество</th>
+                                <th>Средняя цена</th>
+                                <th>Текущая цена</th>
+                                <th>Стоимость</th>
+                                <th>Прибыль/Убыток</th>
+                                <th>Доходность</th>
+                                <th>Счет</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for pos in positions_analysis %}
+                            <tr>
+                                <td>
+                                    <a href="{{ url_for('stock_detail', ticker=pos.stock.ticker) }}" class="text-decoration-none">
+                                        <strong>{{ pos.stock.ticker }}</strong>
+                                    </a>
+                                </td>
+                                <td>{{ pos.stock.name }}</td>
+                                <td>{{ pos.quantity }}</td>
+                                <td>{{ "{:.2f}".format(pos.avg_price) }} ₽</td>
+                                <td>{{ "{:.2f}".format(pos.current_price) }} ₽</td>
+                                <td>{{ "{:,.0f}".format(pos.current_value) }} ₽</td>
+                                <td class="{% if pos.profit_loss >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                    {{ "{:+,.0f}".format(pos.profit_loss) }} ₽
+                                </td>
+                                <td class="{% if pos.profit_loss_pct >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                    {{ "{:+.1f}".format(pos.profit_loss_pct) }}%
+                                </td>
+                                <td>{{ pos.account.name }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// График распределения по типам инструментов
+const instrumentCtx = document.getElementById('instrumentChart').getContext('2d');
+const instrumentChart = new Chart(instrumentCtx, {
+    type: 'doughnut',
+    data: {
+        labels: ['Акции', 'Облигации'],
+        datasets: [{
+            data: [
+                {{ instrument_analysis.share.value }},
+                {{ instrument_analysis.bond.value }}
+            ],
+            backgroundColor: [
+                '#007bff',
+                '#28a745'
+            ],
+            borderWidth: 2,
+            borderColor: '#fff'
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: {
+                position: 'bottom'
+            }
+        }
+    }
+});
+
+// График распределения по секторам
+const sectorCtx = document.getElementById('sectorChart').getContext('2d');
+const sectorChart = new Chart(sectorCtx, {
+    type: 'doughnut',
+    data: {
+        labels: [
+            {% for sector in sector_analysis.keys() %}
+            '{{ sector }}'{% if not loop.last %},{% endif %}
+            {% endfor %}
+        ],
+        datasets: [{
+            data: [
+                {% for data in sector_analysis.values() %}
+                {{ data.value }}{% if not loop.last %},{% endif %}
+                {% endfor %}
+            ],
+            backgroundColor: [
+                '#007bff', '#28a745', '#ffc107', '#dc3545', '#17a2b8', 
+                '#6f42c1', '#e83e8c', '#fd7e14', '#20c997', '#6c757d'
+            ],
+            borderWidth: 2,
+            borderColor: '#fff'
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: {
+                position: 'bottom'
+            }
+        }
+    }
+});
+</script>
+{% endblock %}

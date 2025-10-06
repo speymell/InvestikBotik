@@ -9,7 +9,7 @@
 </div>
 
 <div class="row mt-4">
-    <div class="col-md-6">
+    <div class="col-md-4">
         <div class="card">
             <div class="card-header">
                 <h5><i class="fas fa-sync-alt me-2"></i>Синхронизация акций</h5>
@@ -24,17 +24,74 @@
         </div>
     </div>
     
-    <div class="col-md-6">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-certificate me-2"></i>Синхронизация облигаций</h5>
+            </div>
+            <div class="card-body">
+                <p>Получить актуальный список облигаций с Московской биржи (MOEX)</p>
+                <button class="btn btn-info" onclick="syncBonds()">
+                    <i class="fas fa-download me-2"></i>Синхронизировать облигации
+                </button>
+                <div id="syncBondsResult" class="mt-3"></div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
         <div class="card">
             <div class="card-header">
                 <h5><i class="fas fa-chart-line me-2"></i>Обновление цен</h5>
             </div>
             <div class="card-body">
-                <p>Обновить цены всех акций в базе данных</p>
+                <p>Обновить цены всех инструментов в базе данных</p>
                 <button class="btn btn-success" onclick="updatePrices()">
                     <i class="fas fa-refresh me-2"></i>Обновить цены
                 </button>
                 <div id="pricesResult" class="mt-3"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-vial me-2"></i>Тестирование API</h5>
+            </div>
+            <div class="card-body">
+                <p>Проверить работу API MOEX для акций и облигаций</p>
+                <div class="d-grid gap-2">
+                    <button class="btn btn-outline-primary" onclick="testStocksAPI()">
+                        <i class="fas fa-chart-bar me-2"></i>Тест API акций
+                    </button>
+                    <button class="btn btn-outline-info" onclick="testBondsAPI()">
+                        <i class="fas fa-certificate me-2"></i>Тест API облигаций
+                    </button>
+                </div>
+                <div id="testResult" class="mt-3"></div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-tools me-2"></i>Быстрые действия</h5>
+            </div>
+            <div class="card-body">
+                <p>Комплексные операции для быстрой настройки</p>
+                <div class="d-grid gap-2">
+                    <button class="btn btn-warning" onclick="fullSync()">
+                        <i class="fas fa-sync me-2"></i>Полная синхронизация
+                    </button>
+                    <button class="btn btn-secondary" onclick="initDatabase()">
+                        <i class="fas fa-database me-2"></i>Инициализация БД
+                    </button>
+                </div>
+                <div id="quickActionsResult" class="mt-3"></div>
             </div>
         </div>
     </div>
@@ -139,6 +196,33 @@ async function syncStocks() {
     }
 }
 
+// Функция синхронизации облигаций
+async function syncBonds() {
+    const button = event.target;
+    const resultDiv = document.getElementById('syncBondsResult');
+    
+    button.disabled = true;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Синхронизация...';
+    
+    try {
+        const response = await fetch('/admin/sync-bonds');
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            resultDiv.innerHTML = `<div class="alert alert-success">${data.message}</div>`;
+            loadStats();
+            loadStocksList();
+        } else {
+            resultDiv.innerHTML = `<div class="alert alert-danger">Ошибка: ${data.message}</div>`;
+        }
+    } catch (error) {
+        resultDiv.innerHTML = `<div class="alert alert-danger">Ошибка: ${error.message}</div>`;
+    } finally {
+        button.disabled = false;
+        button.innerHTML = '<i class="fas fa-download me-2"></i>Синхронизировать облигации';
+    }
+}
+
 // Функция обновления цен
 async function updatePrices() {
     const button = event.target;
@@ -206,6 +290,137 @@ async function loadStocksList() {
         }
     } catch (error) {
         console.error('Ошибка загрузки списка акций:', error);
+    }
+}
+
+// Тестирование API акций
+async function testStocksAPI() {
+    const button = event.target;
+    const resultDiv = document.getElementById('testResult');
+    
+    button.disabled = true;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Тестирование...';
+    
+    try {
+        const response = await fetch('/admin/test-moex');
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            resultDiv.innerHTML = `<div class="alert alert-success">${data.message}</div>`;
+        } else {
+            resultDiv.innerHTML = `<div class="alert alert-danger">Ошибка: ${data.message}</div>`;
+        }
+    } catch (error) {
+        resultDiv.innerHTML = `<div class="alert alert-danger">Ошибка: ${error.message}</div>`;
+    } finally {
+        button.disabled = false;
+        button.innerHTML = '<i class="fas fa-chart-bar me-2"></i>Тест API акций';
+    }
+}
+
+// Тестирование API облигаций
+async function testBondsAPI() {
+    const button = event.target;
+    const resultDiv = document.getElementById('testResult');
+    
+    button.disabled = true;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Тестирование...';
+    
+    try {
+        const response = await fetch('/admin/test-bonds');
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            resultDiv.innerHTML = `<div class="alert alert-success">${data.message}</div>`;
+        } else {
+            resultDiv.innerHTML = `<div class="alert alert-danger">Ошибка: ${data.message}</div>`;
+        }
+    } catch (error) {
+        resultDiv.innerHTML = `<div class="alert alert-danger">Ошибка: ${error.message}</div>`;
+    } finally {
+        button.disabled = false;
+        button.innerHTML = '<i class="fas fa-certificate me-2"></i>Тест API облигаций';
+    }
+}
+
+// Полная синхронизация
+async function fullSync() {
+    const button = event.target;
+    const resultDiv = document.getElementById('quickActionsResult');
+    
+    button.disabled = true;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Синхронизация...';
+    
+    try {
+        resultDiv.innerHTML = '<div class="alert alert-info">Синхронизация акций...</div>';
+        
+        // Синхронизируем акции
+        const stocksResponse = await fetch('/admin/sync-stocks');
+        const stocksData = await stocksResponse.json();
+        
+        if (stocksData.status === 'success') {
+            resultDiv.innerHTML = '<div class="alert alert-info">Синхронизация облигаций...</div>';
+            
+            // Синхронизируем облигации
+            const bondsResponse = await fetch('/admin/sync-bonds');
+            const bondsData = await bondsResponse.json();
+            
+            if (bondsData.status === 'success') {
+                resultDiv.innerHTML = '<div class="alert alert-info">Обновление цен...</div>';
+                
+                // Обновляем цены
+                const pricesResponse = await fetch('/admin/update-prices');
+                const pricesData = await pricesResponse.json();
+                
+                if (pricesData.status === 'success') {
+                    resultDiv.innerHTML = `<div class="alert alert-success">
+                        Полная синхронизация завершена!<br>
+                        ${stocksData.message}<br>
+                        ${bondsData.message}<br>
+                        ${pricesData.message}
+                    </div>`;
+                    loadStats();
+                    loadStocksList();
+                } else {
+                    resultDiv.innerHTML = `<div class="alert alert-warning">Синхронизация завершена, но ошибка обновления цен: ${pricesData.message}</div>`;
+                }
+            } else {
+                resultDiv.innerHTML = `<div class="alert alert-warning">Акции синхронизированы, но ошибка с облигациями: ${bondsData.message}</div>`;
+            }
+        } else {
+            resultDiv.innerHTML = `<div class="alert alert-danger">Ошибка синхронизации акций: ${stocksData.message}</div>`;
+        }
+    } catch (error) {
+        resultDiv.innerHTML = `<div class="alert alert-danger">Ошибка: ${error.message}</div>`;
+    } finally {
+        button.disabled = false;
+        button.innerHTML = '<i class="fas fa-sync me-2"></i>Полная синхронизация';
+    }
+}
+
+// Инициализация базы данных
+async function initDatabase() {
+    const button = event.target;
+    const resultDiv = document.getElementById('quickActionsResult');
+    
+    button.disabled = true;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Инициализация...';
+    
+    try {
+        const response = await fetch('/admin/init-db-extra');
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            resultDiv.innerHTML = `<div class="alert alert-success">${data.message}</div>`;
+            loadStats();
+        } else {
+            resultDiv.innerHTML = `<div class="alert alert-danger">Ошибка: ${data.message}</div>`;
+        }
+    } catch (error) {
+        resultDiv.innerHTML = `<div class="alert alert-danger">Ошибка: ${error.message}</div>`;
+    } finally {
+        button.disabled = false;
+        button.innerHTML = '<i class="fas fa-database me-2"></i>Инициализация БД';
     }
 }
 

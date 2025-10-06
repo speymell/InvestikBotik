@@ -52,6 +52,12 @@
       <a class="nav-link" href="{{ url_for('dashboard') }}">
         <i class="fas fa-briefcase me-1"></i>Портфель
       </a>
+      <a class="nav-link" href="{{ url_for('portfolio_analysis') }}">
+        <i class="fas fa-chart-pie me-1"></i>Анализ
+      </a>
+      <a class="nav-link" href="{{ url_for('alerts_page') }}">
+        <i class="fas fa-bell me-1"></i>Напоминания
+      </a>
       <a class="nav-link" href="{{ url_for('stocks') }}">
         <i class="fas fa-chart-bar me-1"></i>Акции
       </a>
@@ -69,10 +75,6 @@
 
 <!-- Bottom Tab Bar (mobile only) -->
 <nav class="tabbar d-md-none">
-  <a href="{{ url_for('index') }}" class="tabbar-item {% if request.endpoint == 'index' %}active{% endif %}">
-    <i class="fas fa-home"></i>
-    <span>Главная</span>
-  </a>
   <a href="{{ url_for('stocks') }}" class="tabbar-item {% if request.endpoint in ['stocks', 'stock_detail'] %}active{% endif %}">
     <i class="fas fa-chart-bar"></i>
     <span>Акции</span>
@@ -81,10 +83,23 @@
     <i class="fas fa-briefcase"></i>
     <span>Портфель</span>
   </a>
-  <a href="#" class="tabbar-item" onclick="toggleTheme(); return false;" title="Тема">
+  <a href="{{ url_for('portfolio_analysis') }}" class="tabbar-item {% if request.endpoint == 'portfolio_analysis' %}active{% endif %}">
+    <i class="fas fa-chart-pie"></i>
+    <span>Анализ</span>
+  </a>
+  <a href="{{ url_for('alerts_page') }}" class="tabbar-item {% if request.endpoint == 'alerts_page' %}active{% endif %}">
+    <i class="fas fa-bell"></i>
+    <span>Алерты</span>
+  </a>
+  <!-- Комментируем главную и тему для экономии места -->
+  <!-- <a href="{{ url_for('index') }}" class="tabbar-item {% if request.endpoint == 'index' %}active{% endif %}">
+    <i class="fas fa-home"></i>
+    <span>Главная</span>
+  </a> -->
+  <!-- <a href="#" class="tabbar-item" onclick="toggleTheme(); return false;" title="Тема">
     <i class="fas fa-moon" id="themeIcon"></i>
     <span>Тема</span>
-  </a>
+  </a> -->
 </nav>
 
 <div class="container">

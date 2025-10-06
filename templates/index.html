@@ -1,46 +1,50 @@
 {% extends 'layout.html' %}
 
 {% block content %}
-<!-- Главный баннер -->
 <div class="px-4 py-5 my-5 text-center fade-in">
     <div class="mb-4">
         <i class="fas fa-chart-line fa-5x mb-3" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"></i>
     </div>
     <h1 class="display-4 fw-bold mb-3">InvestBot</h1>
     <div class="col-lg-8 mx-auto">
-      <p class="lead mb-4 text-muted">Ваш персональный помощник для отслеживания инвестиций в российские акции. Управляйте счетами, анализируйте портфель и следите за рынком в реальном времени.</p>
+      <p class="lead mb-4 text-muted">Ваш персональный помощник для отслеживания инвестиций в российские акции и облигации. Управляйте счетами, анализируйте портфель и следите за рынком в реальном времени.</p>
       <div class="d-grid gap-3 d-sm-flex justify-content-sm-center">
         {% if session.get('user_id') %}
         <a href="{{ url_for('dashboard') }}" class="btn btn-primary btn-lg px-5 btn-action shadow">
           <i class="fas fa-briefcase me-2"></i>Мой портфель
         </a>
-        {% else %}
         <a href="{{ url_for('demo_login') }}" class="btn btn-primary btn-lg px-5 btn-action shadow">
           <i class="fas fa-play-circle me-2"></i>Попробовать демо
         </a>
         {% endif %}
         <a href="{{ url_for('stocks') }}" class="btn btn-outline-primary btn-lg px-5 btn-action">
-          <i class="fas fa-chart-bar me-2"></i>Акции
+          <i class="fas fa-chart-bar me-2"></i>Инвестиции
         </a>
       </div>
       
       <!-- Быстрая статистика -->
       <div class="row mt-5 g-3">
-        <div class="col-md-4">
+        <div class="col-md-3">
           <div class="p-3 bg-white rounded shadow-sm">
             <h3 class="text-primary mb-0">300+</h3>
             <small class="text-muted">Российских акций</small>
           </div>
         </div>
-        <div class="col-md-4">
+        <div class="col-md-3">
           <div class="p-3 bg-white rounded shadow-sm">
-            <h3 class="text-success mb-0">24/7</h3>
+            <h3 class="text-success mb-0">500+</h3>
+            <small class="text-muted">Облигаций</small>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="p-3 bg-white rounded shadow-sm">
+            <h3 class="text-info mb-0">24/7</h3>
             <small class="text-muted">Доступ к портфелю</small>
           </div>
         </div>
-        <div class="col-md-4">
+        <div class="col-md-3">
           <div class="p-3 bg-white rounded shadow-sm">
-            <h3 class="text-info mb-0">Real-time</h3>
+            <h3 class="text-warning mb-0">Real-time</h3>
             <small class="text-muted">Актуальные котировки</small>
           </div>
         </div>
@@ -70,8 +74,8 @@
         <div class="card h-100 text-center stock-card">
             <div class="card-body">
                 <i class="fas fa-chart-line fa-3x text-success mb-3"></i>
-                <h5 class="card-title">Торговля акциями</h5>
-                <p class="card-text">Покупайте и продавайте российские акции по актуальным котировкам. Более 250 доступных инструментов.</p>
+                <h5 class="card-title">Торговля акциями и облигациями</h5>
+                <p class="card-text">Покупайте и продавайте российские акции и облигации по актуальным котировкам. Более 800 доступных инструментов.</p>
             </div>
         </div>
     </div>
@@ -79,9 +83,9 @@
     <div class="col-md-4 mb-4">
         <div class="card h-100 text-center stock-card">
             <div class="card-body">
-                <i class="fas fa-calculator fa-3x text-warning mb-3"></i>
-                <h5 class="card-title">Анализ прибыли</h5>
-                <p class="card-text">Автоматический расчет прибыли и убытков по каждой позиции и портфелю в целом.</p>
+                <i class="fas fa-chart-pie fa-3x text-warning mb-3"></i>
+                <h5 class="card-title">Портфольный анализ</h5>
+                <p class="card-text">Детальный анализ портфеля по секторам, типам инструментов и доходности. Интерактивные графики и статистика.</p>
             </div>
         </div>
     </div>

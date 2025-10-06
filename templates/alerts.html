@@ -1,0 +1,374 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h2><i class="fas fa-bell me-2"></i>Управление напоминаниями</h2>
+        <p class="text-muted">Настройте уведомления о достижении целевых цен ваших инвестиций</p>
+    </div>
+</div>
+
+<!-- Статистика -->
+<div class="row mt-4">
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">Всего напоминаний</h6>
+                        <h4>{{ stats.total }}</h4>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-bell fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">Активных</h6>
+                        <h4>{{ stats.active }}</h4>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-bell-slash fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">Неактивных</h6>
+                        <h4>{{ stats.inactive }}</h4>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-pause fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">Сработало сегодня</h6>
+                        <h4>{{ stats.triggered_today }}</h4>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-check fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Активные напоминания -->
+<div class="row mt-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5><i class="fas fa-bell text-success me-2"></i>Активные напоминания</h5>
+                <span class="badge bg-success">{{ active_alerts|length }}</span>
+            </div>
+            <div class="card-body">
+                {% if active_alerts %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Инструмент</th>
+                                <th>Условие</th>
+                                <th>Целевая цена</th>
+                                <th>Текущая цена</th>
+                                <th>Создано</th>
+                                <th>Последнее срабатывание</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for alert in active_alerts %}
+                            <tr id="alert-{{ alert.id }}">
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <img src="{{ alert.stock.logo_url }}" alt="{{ alert.stock.ticker }}" 
+                                             class="me-2" style="width: 32px; height: 32px; object-fit: contain;">
+                                        <div>
+                                            <strong>{{ alert.stock.ticker }}</strong>
+                                            <br><small class="text-muted">{{ alert.stock.name[:30] }}...</small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge {% if alert.direction == 'above' %}bg-success{% else %}bg-danger{% endif %}">
+                                        {% if alert.direction == 'above' %}
+                                            <i class="fas fa-arrow-up me-1"></i>Выше
+                                        {% else %}
+                                            <i class="fas fa-arrow-down me-1"></i>Ниже
+                                        {% endif %}
+                                    </span>
+                                </td>
+                                <td><strong>{{ "{:.2f}".format(alert.price) }} ₽</strong></td>
+                                <td>
+                                    <span class="{% if alert.stock.price %}
+                                        {% if alert.direction == 'above' and alert.stock.price >= alert.price %}text-success
+                                        {% elif alert.direction == 'below' and alert.stock.price <= alert.price %}text-danger
+                                        {% else %}text-muted{% endif %}
+                                    {% else %}text-muted{% endif %}">
+                                        {{ "{:.2f}".format(alert.stock.price) if alert.stock.price else 'Н/Д' }} ₽
+                                    </span>
+                                </td>
+                                <td>
+                                    <small class="text-muted">
+                                        {{ alert.created_at.strftime('%d.%m.%Y %H:%M') if alert.created_at else 'Н/Д' }}
+                                    </small>
+                                </td>
+                                <td>
+                                    {% if alert.last_triggered_at %}
+                                        <small class="text-success">
+                                            <i class="fas fa-check-circle me-1"></i>
+                                            {{ alert.last_triggered_at.strftime('%d.%m.%Y %H:%M') }}
+                                        </small>
+                                    {% else %}
+                                        <small class="text-muted">Не срабатывало</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <button class="btn btn-outline-warning" onclick="toggleAlert({{ alert.id }})" 
+                                                title="Приостановить">
+                                            <i class="fas fa-pause"></i>
+                                        </button>
+                                        <button class="btn btn-outline-danger" onclick="deleteAlert({{ alert.id }})" 
+                                                title="Удалить">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="fas fa-bell-slash fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">Нет активных напоминаний</h5>
+                    <p class="text-muted">Создайте напоминание на странице любой акции или облигации</p>
+                    <a href="{{ url_for('stocks') }}" class="btn btn-primary">
+                        <i class="fas fa-plus me-2"></i>Создать напоминание
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Неактивные напоминания -->
+{% if inactive_alerts %}
+<div class="row mt-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5><i class="fas fa-pause text-warning me-2"></i>Приостановленные напоминания</h5>
+                <span class="badge bg-warning">{{ inactive_alerts|length }}</span>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Инструмент</th>
+                                <th>Условие</th>
+                                <th>Целевая цена</th>
+                                <th>Текущая цена</th>
+                                <th>Создано</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for alert in inactive_alerts %}
+                            <tr id="alert-{{ alert.id }}" class="table-secondary">
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <img src="{{ alert.stock.logo_url }}" alt="{{ alert.stock.ticker }}" 
+                                             class="me-2" style="width: 32px; height: 32px; object-fit: contain;">
+                                        <div>
+                                            <strong>{{ alert.stock.ticker }}</strong>
+                                            <br><small class="text-muted">{{ alert.stock.name[:30] }}...</small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge bg-secondary">
+                                        {% if alert.direction == 'above' %}
+                                            <i class="fas fa-arrow-up me-1"></i>Выше
+                                        {% else %}
+                                            <i class="fas fa-arrow-down me-1"></i>Ниже
+                                        {% endif %}
+                                    </span>
+                                </td>
+                                <td><strong>{{ "{:.2f}".format(alert.price) }} ₽</strong></td>
+                                <td>
+                                    <span class="text-muted">
+                                        {{ "{:.2f}".format(alert.stock.price) if alert.stock.price else 'Н/Д' }} ₽
+                                    </span>
+                                </td>
+                                <td>
+                                    <small class="text-muted">
+                                        {{ alert.created_at.strftime('%d.%m.%Y %H:%M') if alert.created_at else 'Н/Д' }}
+                                    </small>
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <button class="btn btn-outline-success" onclick="toggleAlert({{ alert.id }})" 
+                                                title="Активировать">
+                                            <i class="fas fa-play"></i>
+                                        </button>
+                                        <button class="btn btn-outline-danger" onclick="deleteAlert({{ alert.id }})" 
+                                                title="Удалить">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Быстрые действия -->
+<div class="row mt-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-tools me-2"></i>Быстрые действия</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="d-grid">
+                            <a href="{{ url_for('stocks') }}" class="btn btn-primary">
+                                <i class="fas fa-plus me-2"></i>Создать новое напоминание
+                            </a>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="d-grid">
+                            <button class="btn btn-warning" onclick="pauseAllAlerts()">
+                                <i class="fas fa-pause me-2"></i>Приостановить все
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="d-grid">
+                            <button class="btn btn-success" onclick="activateAllAlerts()">
+                                <i class="fas fa-play me-2"></i>Активировать все
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Переключить статус алерта
+async function toggleAlert(alertId) {
+    try {
+        const response = await fetch(`/api/alerts/${alertId}/toggle`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Перезагружаем страницу для обновления
+            location.reload();
+        } else {
+            alert('Ошибка: ' + (data.error || 'Неизвестная ошибка'));
+        }
+    } catch (error) {
+        alert('Ошибка соединения: ' + error.message);
+    }
+}
+
+// Удалить алерт
+async function deleteAlert(alertId) {
+    if (!confirm('Вы уверены, что хотите удалить это напоминание?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/alerts/${alertId}/delete`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Удаляем строку из таблицы
+            document.getElementById(`alert-${alertId}`).remove();
+            
+            // Перезагружаем страницу для обновления статистики
+            setTimeout(() => location.reload(), 500);
+        } else {
+            alert('Ошибка: ' + (data.error || 'Неизвестная ошибка'));
+        }
+    } catch (error) {
+        alert('Ошибка соединения: ' + error.message);
+    }
+}
+
+// Приостановить все алерты
+async function pauseAllAlerts() {
+    if (!confirm('Приостановить все активные напоминания?')) {
+        return;
+    }
+    
+    const activeAlerts = document.querySelectorAll('tbody tr:not(.table-secondary)');
+    for (let row of activeAlerts) {
+        const alertId = row.id.replace('alert-', '');
+        await toggleAlert(alertId);
+    }
+}
+
+// Активировать все алерты
+async function activateAllAlerts() {
+    if (!confirm('Активировать все приостановленные напоминания?')) {
+        return;
+    }
+    
+    const inactiveAlerts = document.querySelectorAll('tbody tr.table-secondary');
+    for (let row of inactiveAlerts) {
+        const alertId = row.id.replace('alert-', '');
+        await toggleAlert(alertId);
+    }
+}
+</script>
+{% endblock %}

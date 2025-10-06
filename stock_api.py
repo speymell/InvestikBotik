@@ -992,6 +992,99 @@ class StockAPIService:
             logger.error(f"Ошибка получения цены для {ticker}: {e}")
             return None
 
+    def _extract_bond_price_from_data(self, data, ticker, board, face_value=None):
+        """Извлекает цену облигации из данных MOEX API (конвертирует из % в рубли)"""
+        try:
+            # 1. Пытаемся получить цену из marketdata (текущие торговые данные)
+            if ('marketdata' in data and 'data' in data['marketdata'] and 
+                len(data['marketdata']['data']) > 0):
+                
+                columns = data['marketdata']['columns']
+                row = data['marketdata']['data'][0]
+                market = dict(zip(columns, row))
+                
+                # Для облигаций цена обычно в процентах от номинала
+                price_pct = (
+                    market.get('LAST')
+                    or market.get('LCURRENTPRICE')
+                    or market.get('CLOSE')
+                    or market.get('OPEN')
+                    or market.get('WAPRICE')
+                    or market.get('MARKETPRICE2')
+                )
+                
+                if price_pct and price_pct > 0:
+                    # Конвертируем из процентов в рубли
+                    if face_value:
+                        price_rub = (float(price_pct) / 100.0) * face_value
+                        logger.info(f"Получена цена облигации {ticker} из marketdata с площадки {board}: {price_pct}% = {price_rub} руб")
+                        return price_rub
+                    else:
+                        logger.info(f"Получена цена облигации {ticker} из marketdata с площадки {board}: {price_pct}% (номинал неизвестен)")
+                        return float(price_pct)
+            
+            # 2. Пытаемся получить цену из securities (информация о ценных бумагах)
+            if ('securities' in data and 'data' in data['securities'] and 
+                len(data['securities']['data']) > 0):
+                
+                columns = data['securities']['columns']
+                row = data['securities']['data'][0]
+                security = dict(zip(columns, row))
+                
+                # Получаем номинал из данных, если не передан
+                if not face_value:
+                    face_value = security.get('FACEVALUE') or security.get('NOMINAL')
+                    if face_value:
+                        face_value = float(face_value)
+                
+                price_pct = (
+                    security.get('PREVPRICE')
+                    or security.get('LAST')
+                    or security.get('MARKETPRICE')
+                    or security.get('LCURRENTPRICE')
+                    or security.get('MARKETPRICE2')
+                    or security.get('CLOSE')
+                    or security.get('OPEN')
+                    or security.get('PREVADMITTEDQUOTE')
+                )
+                
+                if price_pct and price_pct > 0:
+                    if face_value:
+                        price_rub = (float(price_pct) / 100.0) * face_value
+                        logger.info(f"Получена цена облигации {ticker} из securities с площадки {board}: {price_pct}% = {price_rub} руб")
+                        return price_rub
+                    else:
+                        logger.info(f"Получена цена облигации {ticker} из securities с площадки {board}: {price_pct}% (номинал неизвестен)")
+                        return float(price_pct)
+            
+            # 3. Пробуем историю торгов для облигаций
+            logger.info(f"Пытаемся получить цену облигации {ticker} из истории торгов площадки {board}")
+            history_url = f"{self.moex_base_url}/history/engines/stock/markets/bonds/boards/{board}/securities/{ticker}.json"
+            params = {'iss.meta': 'off', 'iss.only': 'history', 'history.columns': 'TRADEDATE,CLOSE', 'limit': 1}
+            
+            response = self.session.get(history_url, params=params, timeout=5)
+            response.raise_for_status()
+            
+            hist_data = response.json()
+            if 'history' in hist_data and 'data' in hist_data['history'] and len(hist_data['history']['data']) > 0:
+                row = hist_data['history']['data'][0]
+                if row and len(row) >= 2 and row[1]:
+                    price_pct = float(row[1])
+                    if face_value:
+                        price_rub = (price_pct / 100.0) * face_value
+                        logger.info(f"Получена цена облигации {ticker} из истории площадки {board}: {price_pct}% = {price_rub} руб")
+                        return price_rub
+                    else:
+                        logger.info(f"Получена цена облигации {ticker} из истории площадки {board}: {price_pct}%")
+                        return price_pct
+            
+            logger.warning(f"Не удалось получить цену облигации {ticker} с площадки {board}")
+            return None
+            
+        except Exception as e:
+            logger.error(f"Ошибка получения цены облигации {ticker}: {e}")
+            return None
+
     def _normalize_ticker(self, ticker: str) -> str:
         """Нормализует тикер для MOEX (например, YNDX -> YDEX). Возвращает SECID для запросов."""
         try:

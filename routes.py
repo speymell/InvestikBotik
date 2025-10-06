@@ -70,6 +70,33 @@ def init_routes(app):
                 'message': f'Ошибка синхронизации: {str(e)}'
             }), 500
     
+    @app.route('/admin/sync-bonds')
+    def sync_bonds():
+        """Синхронизация облигаций с MOEX API"""
+        try:
+            from stock_api import stock_api_service
+            
+            # Получаем данные об облигациях с MOEX
+            result = stock_api_service.sync_bonds_to_database()
+            
+            if result and result.get('success'):
+                return jsonify({
+                    'status': 'success',
+                    'message': f'Синхронизация облигаций завершена. Добавлено: {result["added"]}, обновлено: {result["updated"]}, всего инструментов: {result["total"]}'
+                })
+            else:
+                error_msg = result.get('error', 'Неизвестная ошибка') if result else 'Не удалось получить результат'
+                return jsonify({
+                    'status': 'error',
+                    'message': f'Ошибка синхронизации облигаций: {error_msg}'
+                }), 500
+                
+        except Exception as e:
+            return jsonify({
+                'status': 'error',
+                'message': f'Ошибка синхронизации облигаций: {str(e)}'
+            }), 500
+    
     @app.route('/admin/update-prices')
     def update_prices():
         """Обновление цен акций"""
@@ -139,6 +166,30 @@ def init_routes(app):
             return jsonify({
                 'status': 'error',
                 'message': f'Ошибка тестирования MOEX: {str(e)}',
+                'traceback': traceback.format_exc()
+            }), 500
+    
+    @app.route('/admin/test-bonds')
+    def test_bonds():
+        """Тестирование MOEX API для облигаций"""
+        try:
+            from stock_api import stock_api_service
+            
+            # Тестируем получение облигаций
+            bonds = stock_api_service.get_all_bonds()
+            
+            return jsonify({
+                'status': 'success',
+                'message': f'Получено {len(bonds)} облигаций с MOEX',
+                'sample_bonds': bonds[:5] if bonds else [],
+                'total_count': len(bonds)
+            })
+            
+        except Exception as e:
+            import traceback
+            return jsonify({
+                'status': 'error',
+                'message': f'Ошибка тестирования MOEX bonds API: {str(e)}',
                 'traceback': traceback.format_exc()
             }), 500
     
@@ -951,6 +1002,137 @@ def init_routes(app):
 
         return render_template('stocks.html', stocks=stocks, search=search, accounts=accounts, ins_type=ins_type, sort=sort, top_by_turnover=top_by_turnover)
 
+    @app.route('/portfolio-analysis')
+    def portfolio_analysis():
+        """Расширенный анализ портфеля"""
+        if 'user_id' not in session:
+            return redirect(url_for('demo_login'))
+        
+        user_id = session['user_id']
+        user = User.query.get(user_id)
+        if not user:
+            return redirect(url_for('demo_login'))
+        
+        # Получаем все счета пользователя
+        accounts = Account.query.filter_by(user_id=user_id).all()
+        
+        # Расчет общей статистики портфеля
+        portfolio_stats = calculate_portfolio_stats(user_id)
+        
+        # Анализ по секторам
+        sector_analysis = {}
+        total_portfolio_value = 0
+        
+        # Анализ позиций по инструментам
+        positions_analysis = []
+        
+        for account in accounts:
+            # Получаем все транзакции покупки/продажи
+            transactions = Transaction.query.filter_by(
+                account_id=account.id,
+                type='buy'
+            ).join(Stock).all()
+            
+            # Группируем по акциям
+            stock_positions = {}
+            for tx in transactions:
+                if tx.stock_id not in stock_positions:
+                    stock_positions[tx.stock_id] = {
+                        'stock': tx.stock,
+                        'quantity': 0,
+                        'total_cost': 0,
+                        'transactions': []
+                    }
+                
+                stock_positions[tx.stock_id]['quantity'] += tx.quantity or 0
+                stock_positions[tx.stock_id]['total_cost'] += (tx.quantity or 0) * (tx.price or 0)
+                stock_positions[tx.stock_id]['transactions'].append(tx)
+            
+            # Учитываем продажи
+            sell_transactions = Transaction.query.filter_by(
+                account_id=account.id,
+                type='sell'
+            ).join(Stock).all()
+            
+            for tx in sell_transactions:
+                if tx.stock_id in stock_positions:
+                    stock_positions[tx.stock_id]['quantity'] -= tx.quantity or 0
+                    stock_positions[tx.stock_id]['total_cost'] -= (tx.quantity or 0) * (tx.price or 0)
+            
+            # Анализируем каждую позицию
+            for stock_id, position in stock_positions.items():
+                if position['quantity'] > 0:
+                    stock = position['stock']
+                    current_price = stock.price or 0
+                    current_value = position['quantity'] * current_price
+                    avg_price = position['total_cost'] / position['quantity'] if position['quantity'] > 0 else 0
+                    profit_loss = current_value - position['total_cost']
+                    profit_loss_pct = (profit_loss / position['total_cost'] * 100) if position['total_cost'] > 0 else 0
+                    
+                    position_data = {
+                        'stock': stock,
+                        'quantity': position['quantity'],
+                        'avg_price': avg_price,
+                        'current_price': current_price,
+                        'current_value': current_value,
+                        'total_cost': position['total_cost'],
+                        'profit_loss': profit_loss,
+                        'profit_loss_pct': profit_loss_pct,
+                        'account': account
+                    }
+                    positions_analysis.append(position_data)
+                    
+                    # Анализ по секторам
+                    sector = stock.sector or 'Прочее'
+                    if sector not in sector_analysis:
+                        sector_analysis[sector] = {
+                            'value': 0,
+                            'cost': 0,
+                            'profit_loss': 0,
+                            'positions': []
+                        }
+                    
+                    sector_analysis[sector]['value'] += current_value
+                    sector_analysis[sector]['cost'] += position['total_cost']
+                    sector_analysis[sector]['profit_loss'] += profit_loss
+                    sector_analysis[sector]['positions'].append(position_data)
+                    
+                    total_portfolio_value += current_value
+        
+        # Расчет процентного распределения по секторам
+        for sector in sector_analysis:
+            if total_portfolio_value > 0:
+                sector_analysis[sector]['percentage'] = (sector_analysis[sector]['value'] / total_portfolio_value) * 100
+            else:
+                sector_analysis[sector]['percentage'] = 0
+        
+        # Сортируем позиции по убыванию стоимости
+        positions_analysis.sort(key=lambda x: x['current_value'], reverse=True)
+        
+        # Топ и худшие позиции
+        top_positions = positions_analysis[:5]
+        worst_positions = sorted(positions_analysis, key=lambda x: x['profit_loss_pct'])[:5]
+        best_positions = sorted(positions_analysis, key=lambda x: x['profit_loss_pct'], reverse=True)[:5]
+        
+        # Анализ типов инструментов (акции vs облигации)
+        instrument_analysis = {'share': {'value': 0, 'count': 0}, 'bond': {'value': 0, 'count': 0}}
+        for pos in positions_analysis:
+            inst_type = getattr(pos['stock'], 'instrument_type', 'share') or 'share'
+            if inst_type in instrument_analysis:
+                instrument_analysis[inst_type]['value'] += pos['current_value']
+                instrument_analysis[inst_type]['count'] += 1
+        
+        return render_template('portfolio_analysis.html',
+                             user=user,
+                             portfolio_stats=portfolio_stats,
+                             positions_analysis=positions_analysis,
+                             sector_analysis=sector_analysis,
+                             top_positions=top_positions,
+                             worst_positions=worst_positions,
+                             best_positions=best_positions,
+                             instrument_analysis=instrument_analysis,
+                             total_portfolio_value=total_portfolio_value)
+
     @app.route('/stock/<ticker>')
     def stock_detail(ticker):
         """Детальная страница акции"""
@@ -1200,7 +1382,10 @@ def check_alerts():
                     should_trigger = False
             
             if should_trigger:
+                # Сразу обновляем и коммитим, чтобы избежать дублирования
                 a.last_triggered_at = now
+                db.session.commit()
+                
                 triggered.append({
                     'alert_id': a.id, 
                     'ticker': st.ticker, 
@@ -1225,9 +1410,70 @@ def check_alerts():
 ⏰ {now.strftime('%H:%M:%S %d.%m.%Y')}"""
                     
                     send_telegram_message(user.telegram_id, message)
-    if triggered:
-        db.session.commit()
     return jsonify({'success': True, 'triggered': triggered})
+
+    @app.route('/alerts')
+    def alerts_page():
+        """Страница управления напоминаниями"""
+        if 'user_id' not in session:
+            return redirect(url_for('demo_login'))
+        
+        user_id = session['user_id']
+        user = User.query.get(user_id)
+        if not user:
+            return redirect(url_for('demo_login'))
+        
+        # Получаем все алерты пользователя
+        alerts = Alert.query.filter_by(user_id=user_id).join(Stock).all()
+        
+        # Группируем по статусу
+        active_alerts = [a for a in alerts if a.active]
+        inactive_alerts = [a for a in alerts if not a.active]
+        
+        # Статистика
+        stats = {
+            'total': len(alerts),
+            'active': len(active_alerts),
+            'inactive': len(inactive_alerts),
+            'triggered_today': len([a for a in alerts if a.last_triggered_at and 
+                                  a.last_triggered_at.date() == dt.datetime.utcnow().date()])
+        }
+        
+        return render_template('alerts.html', 
+                             user=user,
+                             active_alerts=active_alerts,
+                             inactive_alerts=inactive_alerts,
+                             stats=stats)
+
+    @app.route('/api/alerts/<int:alert_id>/toggle', methods=['POST'])
+    def toggle_alert(alert_id):
+        """Включить/выключить алерт"""
+        if 'user_id' not in session:
+            return jsonify({'error': 'Не авторизован'}), 401
+        
+        alert = Alert.query.filter_by(id=alert_id, user_id=session['user_id']).first()
+        if not alert:
+            return jsonify({'error': 'Алерт не найден'}), 404
+        
+        alert.active = not alert.active
+        db.session.commit()
+        
+        return jsonify({'success': True, 'active': alert.active})
+
+    @app.route('/api/alerts/<int:alert_id>/delete', methods=['DELETE'])
+    def delete_alert(alert_id):
+        """Удалить алерт"""
+        if 'user_id' not in session:
+            return jsonify({'error': 'Не авторизован'}), 401
+        
+        alert = Alert.query.filter_by(id=alert_id, user_id=session['user_id']).first()
+        if not alert:
+            return jsonify({'error': 'Алерт не найден'}), 404
+        
+        db.session.delete(alert)
+        db.session.commit()
+        
+        return jsonify({'success': True})
  
 def withdraw():
     """API для вывода средств со счета"""
