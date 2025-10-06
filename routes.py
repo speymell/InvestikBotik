@@ -1160,8 +1160,24 @@ def check_alerts():
             continue
         hit = (a.direction == 'above' and st.price >= a.price) or (a.direction == 'below' and st.price <= a.price)
         if hit:
-            a.last_triggered_at = dt.datetime.utcnow()
-            triggered.append({'alert_id': a.id, 'ticker': st.ticker, 'price': st.price, 'direction': a.direction})
+            # Проверяем, не срабатывало ли оповещение недавно (в течение часа)
+            now = dt.datetime.utcnow()
+            should_trigger = True
+            if a.last_triggered_at:
+                time_diff = now - a.last_triggered_at
+                # Не показываем повторные уведомления чаще чем раз в час
+                if time_diff.total_seconds() < 3600:
+                    should_trigger = False
+            
+            if should_trigger:
+                a.last_triggered_at = now
+                triggered.append({
+                    'alert_id': a.id, 
+                    'ticker': st.ticker, 
+                    'price': a.price,  # Показываем целевую цену из оповещения
+                    'current_price': st.price,  # Текущую цену акции
+                    'direction': a.direction
+                })
     if triggered:
         db.session.commit()
     return jsonify({'success': True, 'triggered': triggered})

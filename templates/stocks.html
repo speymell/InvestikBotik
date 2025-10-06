@@ -140,14 +140,9 @@
                                             <span class="text-muted">Н/Д</span>
                                         {% endif %}
                                         {% if session.get('user_id') %}
-                                        <div class="btn-group" role="group" aria-label="Alerts">
-                                            <button class="btn btn-outline-secondary icon-btn alert-create" type="button" data-dir="above" data-stock-id="{{ stock.id }}" title="Алерт: цена выше">
-                                                <i class="fas fa-bell"></i>
-                                            </button>
-                                            <button class="btn btn-outline-secondary icon-btn alert-create" type="button" data-dir="below" data-stock-id="{{ stock.id }}" title="Алерт: цена ниже">
-                                                <i class="fas fa-bell"></i>
-                                            </button>
-                                        </div>
+                                        <button class="btn btn-outline-secondary icon-btn alert-create" type="button" data-stock-id="{{ stock.id }}" data-ticker="{{ stock.ticker }}" data-current-price="{{ stock.price }}" title="Создать оповещение">
+                                            <i class="fas fa-bell"></i>
+                                        </button>
                                         {% endif %}
                                     </div>
                                 </td>
@@ -190,10 +185,7 @@
                                             <button class="btn btn-outline-warning icon-btn watch-toggle" type="button" data-stock-id="{{ stock.id }}" title="Избранное">
                                                 <i class="far fa-star"></i>
                                             </button>
-                                            <button class="btn btn-outline-secondary icon-btn alert-create" type="button" data-dir="above" data-stock-id="{{ stock.id }}" title="Алерт: цена выше">
-                                                <i class="fas fa-bell"></i>
-                                            </button>
-                                            <button class="btn btn-outline-secondary icon-btn alert-create" type="button" data-dir="below" data-stock-id="{{ stock.id }}" title="Алерт: цена ниже">
+                                            <button class="btn btn-outline-secondary icon-btn alert-create" type="button" data-stock-id="{{ stock.id }}" data-ticker="{{ stock.ticker }}" data-current-price="{{ stock.price }}" title="Создать оповещение">
                                                 <i class="fas fa-bell"></i>
                                             </button>
                                         </div>
@@ -308,6 +300,53 @@
     </div>
 </div>
 <!-- Конец секции Crypto -->
+
+<!-- Модальное окно для создания оповещения -->
+<div class="modal fade" id="alertModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Создать оповещение</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Акция</label>
+                    <div class="d-flex align-items-center">
+                        <strong id="alertStockTicker"></strong>
+                        <span class="text-muted ms-2" id="alertStockName"></span>
+                    </div>
+                    <small class="text-muted">Текущая цена: <span id="alertCurrentPrice"></span> ₽</small>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">Направление</label>
+                    <div class="btn-group w-100" role="group">
+                        <input type="radio" class="btn-check" name="alertDirection" id="alertAbove" value="above" checked>
+                        <label class="btn btn-outline-success" for="alertAbove">
+                            <i class="fas fa-arrow-up me-1"></i>Выше цены
+                        </label>
+                        
+                        <input type="radio" class="btn-check" name="alertDirection" id="alertBelow" value="below">
+                        <label class="btn btn-outline-danger" for="alertBelow">
+                            <i class="fas fa-arrow-down me-1"></i>Ниже цены
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="alertPrice" class="form-label">Цена для оповещения</label>
+                    <input type="number" class="form-control" id="alertPrice" step="0.01" min="0.01" required>
+                    <div class="form-text">Введите цену, при достижении которой хотите получить уведомление</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-primary" onclick="submitAlert()">Создать оповещение</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <script>
 function scrollTurnover(dir) {
@@ -454,6 +493,9 @@ async function updateAllPrices() {
             // Показываем индикатор успешного обновления
             showUpdateIndicator('success', 'Цены обновлены');
             
+            // Проверяем оповещения после обновления цен
+            checkAlerts();
+            
             // Обновляем кнопку
             if (manualBtn) {
                 manualBtn.innerHTML = '<i class="fas fa-check me-1"></i>Обновлено!';
@@ -563,18 +605,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     const ac = ev.target.closest('.alert-create');
     if (ac) {
       ev.preventDefault(); ev.stopPropagation();
-      const sid = Number(ac.dataset.stockId);
-      const dir = ac.dataset.dir;
-      const priceStr = prompt('Укажите цену для алерта (' + (dir==='above'?'выше ↑':'ниже ↓') + '):');
-      if (!priceStr) return;
-      const price = parseFloat(priceStr.replace(',', '.'));
-      if (!isFinite(price) || price <= 0) { alert('Некорректная цена'); return; }
-      try {
-        const r = await fetch('/api/alerts/create', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({stock_id: sid, direction: dir, price})});
-        const d = await r.json();
-        if (d.success) alert('Алерт создан');
-        else alert('Ошибка: ' + (d.error||'неизвестно'));
-      } catch (e) { alert('Ошибка сети'); }
+      openAlertModal(ac);
       return;
     }
   }, {passive:false});
@@ -584,6 +615,187 @@ function markWatch(btn, added) {
   const i = btn.querySelector('i');
   if (!i) return;
   i.className = added ? 'fas fa-star' : 'far fa-star';
+}
+
+// Переменные для модального окна оповещений
+let currentAlertStockId = null;
+
+function openAlertModal(button) {
+  const stockId = button.dataset.stockId;
+  const ticker = button.dataset.ticker;
+  const currentPrice = parseFloat(button.dataset.currentPrice);
+  
+  currentAlertStockId = stockId;
+  
+  // Заполняем данные в модальном окне
+  document.getElementById('alertStockTicker').textContent = ticker;
+  document.getElementById('alertCurrentPrice').textContent = currentPrice.toFixed(2);
+  
+  // Получаем название акции из DOM
+  const stockRow = button.closest('[data-ticker]');
+  const stockNameElement = stockRow ? stockRow.querySelector('small.text-muted') : null;
+  const stockName = stockNameElement ? stockNameElement.textContent : '';
+  document.getElementById('alertStockName').textContent = stockName;
+  
+  // Очищаем форму
+  document.getElementById('alertPrice').value = '';
+  document.getElementById('alertAbove').checked = true;
+  
+  // Показываем модальное окно
+  const modal = new bootstrap.Modal(document.getElementById('alertModal'));
+  modal.show();
+}
+
+async function submitAlert() {
+  const stockId = currentAlertStockId;
+  const direction = document.querySelector('input[name="alertDirection"]:checked').value;
+  const price = parseFloat(document.getElementById('alertPrice').value);
+  
+  if (!price || price <= 0) {
+    alert('Введите корректную цену');
+    return;
+  }
+  
+  try {
+    const response = await fetch('/api/alerts/create', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        stock_id: stockId,
+        direction: direction,
+        price: price
+      })
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      alert('Оповещение создано успешно!');
+      // Закрываем модальное окно
+      const modal = bootstrap.Modal.getInstance(document.getElementById('alertModal'));
+      modal.hide();
+    } else {
+      alert('Ошибка: ' + (data.error || 'неизвестно'));
+    }
+  } catch (error) {
+    alert('Ошибка сети: ' + error.message);
+  }
+}
+
+// Функция для проверки оповещений
+async function checkAlerts() {
+  try {
+    const response = await fetch('/api/alerts/check', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'}
+    });
+    
+    const data = await response.json();
+    
+    if (data.success && data.triggered && data.triggered.length > 0) {
+      // Показываем уведомления о сработавших оповещениях
+      data.triggered.forEach(alert => {
+        showAlertNotification(alert);
+      });
+    }
+  } catch (error) {
+    console.error('Ошибка при проверке оповещений:', error);
+  }
+}
+
+// Функция для показа уведомления о сработавшем оповещении
+function showAlertNotification(alertData) {
+  const direction = alertData.direction === 'above' ? 'выше' : 'ниже';
+  const directionIcon = alertData.direction === 'above' ? '↗️' : '↘️';
+  
+  // Создаем красивое уведомление
+  const notification = document.createElement('div');
+  notification.className = 'alert-notification';
+  notification.innerHTML = `
+    <div class="alert-notification-content">
+      <div class="alert-notification-icon">
+        <i class="fas fa-bell"></i>
+      </div>
+      <div class="alert-notification-text">
+        <strong>${alertData.ticker}</strong> ${directionIcon}<br>
+        <small>Цена ${direction} ${alertData.price} ₽</small><br>
+        <small>Текущая: ${alertData.current_price ? alertData.current_price.toFixed(2) : alertData.price} ₽</small>
+      </div>
+      <button class="alert-notification-close" onclick="this.parentElement.parentElement.remove()">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+  `;
+  
+  // Добавляем стили если их еще нет
+  if (!document.getElementById('alertNotificationStyles')) {
+    const styles = document.createElement('style');
+    styles.id = 'alertNotificationStyles';
+    styles.textContent = `
+      .alert-notification {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 0;
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        z-index: 9999;
+        animation: slideInRight 0.5s ease-out;
+        margin-bottom: 10px;
+        max-width: 300px;
+      }
+      .alert-notification-content {
+        display: flex;
+        align-items: center;
+        padding: 15px;
+      }
+      .alert-notification-icon {
+        font-size: 24px;
+        margin-right: 12px;
+        color: #ffd700;
+      }
+      .alert-notification-text {
+        flex: 1;
+        font-size: 14px;
+      }
+      .alert-notification-close {
+        background: none;
+        border: none;
+        color: white;
+        font-size: 16px;
+        cursor: pointer;
+        padding: 5px;
+        margin-left: 10px;
+        opacity: 0.7;
+        transition: opacity 0.2s;
+      }
+      .alert-notification-close:hover {
+        opacity: 1;
+      }
+      @keyframes slideInRight {
+        from {
+          transform: translateX(100%);
+          opacity: 0;
+        }
+        to {
+          transform: translateX(0);
+          opacity: 1;
+        }
+      }
+    `;
+    document.head.appendChild(styles);
+  }
+  
+  document.body.appendChild(notification);
+  
+  // Автоматически убираем уведомление через 10 секунд
+  setTimeout(() => {
+    if (notification.parentElement) {
+      notification.remove();
+    }
+  }, 10000);
 }
 </script>
 {% endblock %}
