@@ -241,6 +241,15 @@ header .fs-4 {
     transition: all 0.3s;
 }
 
+.action-card {
+    background-color: rgba(0,0,0,0);
+    box-shadow: none;
+}
+
+.action-card:hover {
+    box-shadow: none;
+}
+
 .card:hover {
     box-shadow: 0 4px 16px rgba(0,0,0,0.12);
 }
@@ -253,7 +262,7 @@ header .fs-4 {
 }
 
 .card-body {
-    padding: 4px;
+    padding: 12px;
 }
 
 /* Улучшенные кнопки */
@@ -551,6 +560,7 @@ footer {
 }
 
 [data-theme="dark"] .text-muted {
+    text-align: center;
     color: #a0aec0 !important;
 }
 
@@ -682,6 +692,7 @@ footer {
 }
 
 [data-theme="dark"] .text-muted {
+    text-align: center;
     color: #a0aec0 !important;
 }
 

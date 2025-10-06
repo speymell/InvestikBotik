@@ -70,7 +70,7 @@
                     </div>
                 </div>
             </div>
-            <div class="card-body py-2">
+            <div class="card-body-list py-2">
                 <div class="turnover-track" id="turnoverTrack">
                     {% for s in top_by_turnover %}
                     <a class="turnover-item" href="{{ url_for('stock_detail', ticker=s.ticker) }}" title="{{ s.name }}">
