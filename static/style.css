@@ -4,6 +4,18 @@
 html, body {
     overflow-x: hidden;
 }
+/* Global typography scale */
+:root {
+    --font-base: 16px;
+    --font-sm: 0.95rem;
+    --font-md: 1rem;
+    --font-lg: 1.125rem;
+}
+body { font-size: var(--font-md); }
+h2 { font-size: 1.75rem; }
+h5 { font-size: 1.125rem; }
+.table { font-size: 0.95rem; }
+.btn { font-size: var(--font-sm); }
 
 /* Мобильные оптимизации */
 @media (max-width: 768px) {
@@ -180,7 +192,8 @@ html, body {
 
 /* Turnover horizontal carousel */
 .turnover-section .card-header { padding: .5rem .75rem; }
-.turnover-track { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x proximity; padding: 2px 2px 6px; }
+.turnover-track { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x proximity; padding: 2px 16px 6px; }
+.turnover-section .card-body-list { padding-left: 8px; padding-right: 8px; }
 .turnover-track::-webkit-scrollbar { height: 8px; }
 .turnover-track::-webkit-scrollbar-thumb { background: rgba(0,0,0,.15); border-radius: 8px; }
 [data-theme="dark"] .turnover-track::-webkit-scrollbar-thumb { background: rgba(255,255,255,.2); }
@@ -195,6 +208,33 @@ html, body {
 [data-theme="dark"] .ti-price { color: #90cdf4; }
 [data-theme="dark"] .ti-turnover { color: #a0aec0; }
 .turnover-nav .btn { padding: .15rem .4rem; }
+
+/* Alerts actions: bigger buttons with spacing */
+.alerts-actions { gap: 8px; }
+.alerts-actions .btn { padding: .4rem .75rem !important; font-size: 0.95rem; }
+
+/* Make dark theme more neutral (less blue) */
+[data-theme="dark"] .btn-primary {
+    background: linear-gradient(135deg, #4b5563 0%, #374151 100%) !important;
+}
+[data-theme="dark"] .brand-icon {
+    background: linear-gradient(135deg, #4b5563 0%, #374151 100%) !important;
+}
+[data-theme="dark"] .page-link:hover {
+    background-color: #4b5563;
+    border-color: #4b5563;
+    color: #e5e7eb;
+}
+[data-theme="dark"] .tabbar-item.active {
+  color: #e5e7eb;
+  background: rgba(148, 163, 184, 0.14);
+}
+
+/* Improve table header readability slightly */
+.table thead th { font-size: 0.8rem; }
+
+/* Ensure card list blocks don't stick to edges */
+.card-body-list { padding-left: 8px; padding-right: 8px; }
 
 .profit-positive {
     color: #28a745 !important;

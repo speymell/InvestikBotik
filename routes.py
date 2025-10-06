@@ -71,33 +71,6 @@ def init_routes(app):
                 'message': f'Ошибка синхронизации: {str(e)}'
             }), 500
     
-    @app.route('/admin/sync-bonds')
-    def sync_bonds():
-        """Синхронизация облигаций с MOEX API"""
-        try:
-            from stock_api import stock_api_service
-            
-            # Получаем данные об облигациях с MOEX
-            result = stock_api_service.sync_bonds_to_database()
-            
-            if result and result.get('success'):
-                return jsonify({
-                    'status': 'success',
-                    'message': f'Синхронизация облигаций завершена. Добавлено: {result["added"]}, обновлено: {result["updated"]}, всего инструментов: {result["total"]}'
-                })
-            else:
-                error_msg = result.get('error', 'Неизвестная ошибка') if result else 'Не удалось получить результат'
-                return jsonify({
-                    'status': 'error',
-                    'message': f'Ошибка синхронизации облигаций: {error_msg}'
-                }), 500
-                
-        except Exception as e:
-            return jsonify({
-                'status': 'error',
-                'message': f'Ошибка синхронизации облигаций: {str(e)}'
-            }), 500
-    
     @app.route('/admin/update-prices')
     def update_prices():
         """Обновление цен акций"""
@@ -892,6 +865,15 @@ def init_routes(app):
                 pass
 
         query = Stock.query
+        # Автосинхронизация облигаций при первом заходе на вкладку Облигации
+        try:
+            if ins_type == 'bond':
+                bonds_count = Stock.query.filter(Stock.instrument_type == 'bond').count()
+                if bonds_count == 0:
+                    from stock_api import stock_api_service
+                    stock_api_service.sync_bonds_to_database()
+        except Exception:
+            pass
         if search:
             from sqlalchemy import or_
             query = query.filter(

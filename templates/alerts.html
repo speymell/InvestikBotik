@@ -146,13 +146,11 @@
                                     {% endif %}
                                 </td>
                                 <td>
-                                    <div class="btn-group btn-group-sm">
-                                        <button class="btn btn-outline-warning" onclick="toggleAlert({{ alert.id }})" 
-                                                title="Приостановить">
+                                    <div class="d-flex flex-row flex-wrap alerts-actions">
+                                        <button class="btn btn-outline-warning" onclick="toggleAlert({{ alert.id }})" title="Приостановить">
                                             <i class="fas fa-pause"></i>
                                         </button>
-                                        <button class="btn btn-outline-danger" onclick="deleteAlert({{ alert.id }})" 
-                                                title="Удалить">
+                                        <button class="btn btn-outline-danger" onclick="deleteAlert({{ alert.id }})" title="Удалить">
                                             <i class="fas fa-trash"></i>
                                         </button>
                                     </div>
@@ -233,13 +231,11 @@
                                     </small>
                                 </td>
                                 <td>
-                                    <div class="btn-group btn-group-sm">
-                                        <button class="btn btn-outline-success" onclick="toggleAlert({{ alert.id }})" 
-                                                title="Активировать">
+                                    <div class="d-flex flex-row flex-wrap alerts-actions">
+                                        <button class="btn btn-outline-success" onclick="toggleAlert({{ alert.id }})" title="Активировать">
                                             <i class="fas fa-play"></i>
                                         </button>
-                                        <button class="btn btn-outline-danger" onclick="deleteAlert({{ alert.id }})" 
-                                                title="Удалить">
+                                        <button class="btn btn-outline-danger" onclick="deleteAlert({{ alert.id }})" title="Удалить">
                                             <i class="fas fa-trash"></i>
                                         </button>
                                     </div>
