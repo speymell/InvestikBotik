@@ -3,7 +3,7 @@
 {% block content %}
 <div class="row">
     <div class="col-md-12">
-        <h2>Добро пожаловать, {{ user.username }}😎!</h2>
+        <h2>Привет, {{ user.username }}😎!</h2>
     </div>
 </div>
 
@@ -11,13 +11,18 @@
 <div class="row mt-4">
     <div class="col-md-12 d-flex justify-content-between align-items-center mb-3">
         <h5 class="mb-0">Статистика портфеля</h5>
-        <div class="btn-group btn-group-sm" role="group" aria-label="Вид статистики">
-            <button type="button" class="btn btn-outline-primary active" id="statsViewCards" onclick="toggleStatsView('cards')">
-                <i class="fas fa-th-large"></i> Карточки
-            </button>
-            <button type="button" class="btn btn-outline-primary" id="statsViewCompact" onclick="toggleStatsView('compact')">
-                <i class="fas fa-list"></i> Компактно
-            </button>
+        <div class="d-flex align-items-center gap-2">
+            <div class="btn-group btn-group-sm" role="group" aria-label="Вид статистики">
+                <button type="button" class="btn btn-outline-primary active" id="statsViewCards" onclick="toggleStatsView('cards')">
+                    <i class="fas fa-th-large"></i> Карточки
+                </button>
+                <button type="button" class="btn btn-outline-primary" id="statsViewCompact" onclick="toggleStatsView('compact')">
+                    <i class="fas fa-list"></i> Компактно
+                </button>
+            </div>
+            <a href="{{ url_for('portfolio_analysis') }}" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-chart-pie me-1"></i> Анализ
+            </a>
         </div>
     </div>
 </div>
@@ -265,7 +270,7 @@
   </div>
 
 <!-- Топ акций -->
-<div class="row mt-5">
+<div class="row mt-3">
     <div class="col-md-12">
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
