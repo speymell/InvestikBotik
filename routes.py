@@ -6,6 +6,7 @@ import logging
 import requests
 import os
 
+# Fixed alerts routing issue - all @app.route decorators are now inside init_routes()
 logger = logging.getLogger(__name__)
 
 def send_telegram_message(telegram_id, message):
@@ -1240,70 +1241,11 @@ def init_routes(app):
     app.add_url_rule('/api/alerts', view_func=list_alerts)
     app.add_url_rule('/api/alerts/create', view_func=create_alert, methods=['POST'])
     app.add_url_rule('/api/alerts/check', view_func=check_alerts, methods=['POST'])
+    # Alerts management UI and actions
+    app.add_url_rule('/alerts', view_func=alerts_page)
+    app.add_url_rule('/api/alerts/<int:alert_id>/toggle', view_func=toggle_alert, methods=['POST'])
+    app.add_url_rule('/api/alerts/<int:alert_id>/delete', view_func=delete_alert, methods=['DELETE'])
 
-    @app.route('/alerts')
-    def alerts_page():
-        """Страница управления напоминаниями"""
-        if 'user_id' not in session:
-            return redirect(url_for('demo_login'))
-        
-        user_id = session['user_id']
-        user = User.query.get(user_id)
-        if not user:
-            return redirect(url_for('demo_login'))
-        
-        # Получаем все алерты пользователя
-        alerts = Alert.query.filter_by(user_id=user_id).join(Stock).all()
-        
-        # Группируем по статусу
-        active_alerts = [a for a in alerts if a.active]
-        inactive_alerts = [a for a in alerts if not a.active]
-        
-        # Статистика
-        stats = {
-            'total': len(alerts),
-            'active': len(active_alerts),
-            'inactive': len(inactive_alerts),
-            'triggered_today': len([a for a in alerts if a.last_triggered_at and 
-                                  a.last_triggered_at.date() == datetime.datetime.utcnow().date()])
-        }
-        
-        return render_template('alerts.html', 
-                             user=user,
-                             active_alerts=active_alerts,
-                             inactive_alerts=inactive_alerts,
-                             stats=stats)
-
-    @app.route('/api/alerts/<int:alert_id>/toggle', methods=['POST'])
-    def toggle_alert(alert_id):
-        """Включить/выключить алерт"""
-        if 'user_id' not in session:
-            return jsonify({'error': 'Не авторизован'}), 401
-        
-        alert = Alert.query.filter_by(id=alert_id, user_id=session['user_id']).first()
-        if not alert:
-            return jsonify({'error': 'Алерт не найден'}), 404
-        
-        alert.active = not alert.active
-        db.session.commit()
-        
-        return jsonify({'success': True, 'active': alert.active})
-
-    @app.route('/api/alerts/<int:alert_id>/delete', methods=['DELETE'])
-    def delete_alert(alert_id):
-        """Удалить алерт"""
-        if 'user_id' not in session:
-            return jsonify({'error': 'Не авторизован'}), 401
-        
-        alert = Alert.query.filter_by(id=alert_id, user_id=session['user_id']).first()
-        if not alert:
-            return jsonify({'error': 'Алерт не найден'}), 404
-        
-        db.session.delete(alert)
-        db.session.commit()
-        
-        return jsonify({'success': True})
-    
 def deposit():
     """API для пополнения счета"""
     if 'user_id' not in session:
@@ -1474,6 +1416,69 @@ def check_alerts():
                     
                     send_telegram_message(user.telegram_id, message)
     return jsonify({'success': True, 'triggered': triggered})
+
+# Alerts management pages and actions (plain functions; registered in init_routes)
+def alerts_page():
+    """Страница управления напоминаниями"""
+    if 'user_id' not in session:
+        return redirect(url_for('demo_login'))
+    
+    user_id = session['user_id']
+    user = User.query.get(user_id)
+    if not user:
+        return redirect(url_for('demo_login'))
+    
+    # Получаем все алерты пользователя
+    alerts = Alert.query.filter_by(user_id=user_id).join(Stock).all()
+    
+    # Группируем по статусу
+    active_alerts = [a for a in alerts if a.active]
+    inactive_alerts = [a for a in alerts if not a.active]
+    
+    # Статистика
+    stats = {
+        'total': len(alerts),
+        'active': len(active_alerts),
+        'inactive': len(inactive_alerts),
+        'triggered_today': len([a for a in alerts if a.last_triggered_at and a.last_triggered_at.date() == datetime.datetime.utcnow().date()])
+    }
+    
+    return render_template('alerts.html', 
+                         user=user,
+                         active_alerts=active_alerts,
+                         inactive_alerts=inactive_alerts,
+                         stats=stats)
+
+
+def toggle_alert(alert_id):
+    """Включить/выключить алерт"""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    
+    alert = Alert.query.filter_by(id=alert_id, user_id=session['user_id']).first()
+    if not alert:
+        return jsonify({'error': 'Алерт не найден'}), 404
+    
+    alert.active = not alert.active
+    db.session.commit()
+    
+    return jsonify({'success': True, 'active': alert.active})
+
+
+def delete_alert(alert_id):
+    """Удалить алерт"""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    
+    alert = Alert.query.filter_by(id=alert_id, user_id=session['user_id']).first()
+    if not alert:
+        return jsonify({'error': 'Алерт не найден'}), 404
+    
+    db.session.delete(alert)
+    db.session.commit()
+    
+    return jsonify({'success': True})
+
 
 def withdraw():
     """API для вывода средств со счета"""
