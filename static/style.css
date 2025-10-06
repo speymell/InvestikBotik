@@ -253,7 +253,7 @@ header .fs-4 {
 }
 
 .card-body {
-    padding: 1.5rem;
+    padding: 4px;
 }
 
 /* Улучшенные кнопки */
@@ -913,10 +913,14 @@ footer {
 
 /* Мобильный список акций */
 .stock-mobile-item {
-    padding: 12px 16px;
+    padding: 6px 8px;
     border-bottom: 1px solid #e9ecef;
     cursor: pointer;
     transition: all 0.2s ease;
+}
+
+.stock_card{
+    gap: 8px;   
 }
 
 .stock-mobile-item:hover {
