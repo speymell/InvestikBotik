@@ -913,7 +913,7 @@ footer {
 
 /* Мобильный список акций */
 .stock-mobile-item {
-    padding: 1rem;
+    padding: 12px 16px;
     border-bottom: 1px solid #e9ecef;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -923,47 +923,37 @@ footer {
     background-color: rgba(102, 126, 234, 0.05);
 }
 
-.stock-mobile-item:last-child {
-    border-bottom: none;
-}
-
-.stock-mobile-logo {
-    margin-right: 1rem;
-    flex-shrink: 0;
-}
-
-.stock-mobile-info {
-    min-width: 0;
-}
-
-.stock-mobile-ticker {
-    font-weight: 700;
-    font-size: 1rem;
-    color: #2d3748;
-    margin-bottom: 0.25rem;
-}
-
-.stock-mobile-name {
-    font-size: 0.875rem;
-    color: #6c757d;
-    margin-bottom: 0.25rem;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.stock-mobile-price {
-    font-weight: 700;
-    font-size: 1.125rem;
-    color: #667eea;
-    white-space: nowrap;
-}
-
-[data-theme="dark"] .stock-mobile-item {
-    border-bottom-color: #4a5568;
-}
-
 [data-theme="dark"] .stock-mobile-item:hover {
     background-color: rgba(144, 205, 244, 0.05);
+}
+
+/* Actions row on mobile items */
+.stock-mobile-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    align-items: center;
+    margin-top: 4px;
+}
+
+/* Compact icon buttons (shared desktop/mobile) */
+.icon-btn {
+    padding: 0 !important;
+    width: 36px;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px !important;
+}
+.icon-btn i { font-size: 14px; line-height: 1; }
+
+@media (max-width: 767.98px) {
+  .icon-btn {
+    width: 32px;
+    height: 32px;
+  }
+  .stock-mobile-actions { gap: 6px; }
 }
 
 [data-theme="dark"] .stock-mobile-ticker {

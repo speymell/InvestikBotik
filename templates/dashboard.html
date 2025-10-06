@@ -143,9 +143,10 @@
                         <small class="text-muted">ID: {{ account.id }}</small>
                     </div>
                     <div class="text-end">
-                        <span class="h6">{{ "%.2f"|format(account.balance) }} ₽</span>
+                        <span class="h6">{{ "%.2f"|format(account.total_value) }} ₽</span>
                         <br>
-                        <a href="{{ url_for('account_detail', account_id=account.id) }}" class="btn btn-sm btn-outline-primary">Подробнее</a>
+                        <small class="text-muted">Свободно: {{ "%.2f"|format(account.balance) }} ₽</small>
+                        <a href="{{ url_for('account_detail', account_id=account.id) }}" class="btn btn-sm btn-outline-primary mt-1">Подробнее</a>
                     </div>
                 </div>
                 {% if not loop.last %}<hr>{% endif %}

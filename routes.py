@@ -647,6 +647,11 @@ def init_routes(app):
         
         user = User.query.get(session['user_id'])
         accounts = Account.query.filter_by(user_id=user.id).all()
+
+        # Для каждого счета считаем полную стоимость
+        for account in accounts:
+            account_stats = calculate_account_stats(account.id)
+            account.total_value = account.balance + (account_stats['total_current_value'] if account_stats else 0)
         
         # Получаем статистику портфеля
         portfolio_stats = calculate_portfolio_stats(user.id)
