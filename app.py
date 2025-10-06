@@ -4,6 +4,14 @@ from database import db, User, Account, Stock, Transaction
 from routes import init_routes
 from config import config
 
+# Загружаем переменные окружения из .env файла
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    # python-dotenv не установлен, используем системные переменные
+    pass
+
 def create_app(config_name=None):
     """Фабрика приложений Flask"""
     app = Flask(__name__)

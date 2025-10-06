@@ -3,8 +3,38 @@ from database import db, User, Account, Stock, Transaction, Watchlist, Alert
 from utils import calculate_portfolio_stats, get_top_stocks, calculate_account_stats
 import datetime
 import logging
+import requests
+import os
 
 logger = logging.getLogger(__name__)
+
+def send_telegram_message(telegram_id, message):
+    """Отправка сообщения в Telegram"""
+    try:
+        # Получаем токен бота из переменных окружения
+        bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
+        if not bot_token:
+            logger.warning("TELEGRAM_BOT_TOKEN не установлен")
+            return False
+        
+        url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+        payload = {
+            'chat_id': telegram_id,
+            'text': message,
+            'parse_mode': 'HTML'
+        }
+        
+        response = requests.post(url, json=payload, timeout=10)
+        if response.status_code == 200:
+            logger.info(f"Telegram сообщение отправлено пользователю {telegram_id}")
+            return True
+        else:
+            logger.error(f"Ошибка отправки Telegram сообщения: {response.status_code} - {response.text}")
+            return False
+            
+    except Exception as e:
+        logger.error(f"Исключение при отправке Telegram сообщения: {e}")
+        return False
 
 def init_routes(app):
     
@@ -1178,6 +1208,23 @@ def check_alerts():
                     'current_price': st.price,  # Текущую цену акции
                     'direction': a.direction
                 })
+                
+                # Отправляем Telegram уведомление
+                user = User.query.get(a.user_id)
+                if user and user.telegram_id:
+                    direction_text = "выше" if a.direction == "above" else "ниже"
+                    direction_emoji = "📈" if a.direction == "above" else "📉"
+                    
+                    message = f"""🔔 <b>Оповещение о цене</b>
+                    
+{direction_emoji} <b>{st.ticker}</b> - {st.name}
+
+💰 Цена {direction_text} <b>{a.price:.2f} ₽</b>
+📊 Текущая цена: <b>{st.price:.2f} ₽</b>
+
+⏰ {now.strftime('%H:%M:%S %d.%m.%Y')}"""
+                    
+                    send_telegram_message(user.telegram_id, message)
     if triggered:
         db.session.commit()
     return jsonify({'success': True, 'triggered': triggered})
