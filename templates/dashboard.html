@@ -3,9 +3,37 @@
 {% block content %}
 <div class="row">
     <div class="col-md-12">
-        <h2>Привет, {{ user.username }}😎!</h2>
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h2 class="mb-0">Привет, {{ user.username }}😎!</h2>
+            <div id="userAvatar" class="user-avatar ms-3" data-username="{{ user.username }}"></div>
+        </div>
     </div>
 </div>
+
+<style>
+/* Lightweight avatar styles (kept local to dashboard to avoid CSS bloat) */
+.user-avatar { display: flex; align-items: center; }
+.user-avatar .avatar-img,
+.user-avatar .avatar-initials {
+  width: 48px; height: 48px;
+  border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-weight: 600; font-size: 18px; color: #fff;
+  overflow: hidden;
+}
+.user-avatar .avatar-img { object-fit: cover; border: 2px solid rgba(0,0,0,0.06); }
+.user-avatar .avatar-initials {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+[data-theme="dark"] .user-avatar .avatar-img { border-color: rgba(255,255,255,0.1); }
+[data-theme="dark"] .user-avatar .avatar-initials {
+  background: linear-gradient(135deg, #245579 0%, #f5576c 100%);
+}
+@media (max-width: 576px) {
+  .user-avatar .avatar-img,
+  .user-avatar .avatar-initials { width: 32px; height: 32px; font-size: 14px; }
+}
+</style>
 
 <!-- Переключатель вида статистики -->
 <div class="row mt-4">
@@ -494,6 +522,56 @@ document.addEventListener('DOMContentLoaded', function() {
         }
       }
     } catch(e) { console.warn('Sector chart error', e); }
+});
+</script>
+
+<!-- Inject Telegram photo_url if available, otherwise render initials -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  try {
+    const wrap = document.getElementById('userAvatar');
+    if (!wrap) return;
+    const username = (wrap.getAttribute('data-username') || '').trim();
+
+    function renderInitials() {
+      wrap.innerHTML = '';
+      const div = document.createElement('div');
+      div.className = 'avatar-initials';
+      const ch = (username || 'U').charAt(0).toUpperCase();
+      div.textContent = ch;
+      wrap.appendChild(div);
+    }
+
+    function renderUrl(url) {
+      wrap.innerHTML = '';
+      const img = new Image();
+      img.className = 'avatar-img';
+      img.alt = username || 'avatar';
+      img.referrerPolicy = 'no-referrer';
+      img.src = url;
+      img.onerror = renderInitials;
+      wrap.appendChild(img);
+    }
+
+    let url = null;
+    const tg = (window.Telegram && window.Telegram.WebApp) ? window.Telegram.WebApp : null;
+    if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.photo_url) {
+      url = tg.initDataUnsafe.user.photo_url;
+    } else if (tg && tg.initData) {
+      try {
+        const initData = new URLSearchParams(tg.initData);
+        const userParam = initData.get('user');
+        if (userParam) {
+          const u = JSON.parse(decodeURIComponent(userParam));
+          if (u && u.photo_url) url = u.photo_url;
+        }
+      } catch (e) {}
+    }
+
+    if (url) renderUrl(url); else renderInitials();
+  } catch (e) {
+    // Fallback silently
+  }
 });
 </script>
 {% endblock %}

@@ -12,7 +12,7 @@ html, body {
     --font-lg: 1.125rem;
 }
 body { font-size: var(--font-md); }
-h2 { font-size: 1.75rem; }
+h2 { font-size: 1.75rem; text-align: center; }
 h5 { font-size: 1.125rem; }
 .table { font-size: 0.95rem; }
 .btn { font-size: var(--font-sm); }
@@ -98,6 +98,7 @@ h5 { font-size: 1.125rem; }
     }
     
     h2 {
+        text-align: center;
         font-size: 1.5rem;
     }
     
@@ -495,7 +496,7 @@ header .fs-4 {
 }
 
 /* KPI cards unified styling for Portfolio Analysis */
-.kpi-row { row-gap: 1rem; }
+.kpi-row { row-gap: 2px; }
 .kpi-card {
   border: none;
   border-radius: 12px;
@@ -698,14 +699,27 @@ footer {
 /* Новые стильные карточки статистики */
 .stats-card {
     background: white;
+    display: flex;
+    flex-direction: row-reverse;
+    align-items: center;
     border-radius: 16px;
-    padding: 24px;
+    padding: 18px 12px 12px 12px;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
     border: none;
     transition: all 0.3s ease;
     height: 100%;
     position: relative;
     overflow: hidden;
+}
+
+#portfolio-stats{
+    display: flex;
+    justify-content: space-between;
+    width: 100%;    
+}
+
+#portfolio-fl{
+    width: 100%;
 }
 
 .stats-card:hover {
@@ -731,7 +745,7 @@ footer {
     align-items: center;
     justify-content: center;
     font-size: 24px;
-    margin-bottom: 16px;
+    /* margin-bottom: 16px; */
     color: white;
 }
 
@@ -812,7 +826,7 @@ footer {
 }
 
 [data-theme="dark"] body {
-    background-color: #1a202c !important;
+    background-color: #181818 !important;
     color: #e2e8f0 !important;
 }
 
@@ -827,14 +841,14 @@ footer {
 }
 
 [data-theme="dark"] .card {
-    background-color: #2d3748 !important;
-    border: 1px solid #4a5568 !important;
+    background-color: #353535 !important;
+    border: 1px solid #595959 !important;
     color: #e2e8f0 !important;
 }
 
 [data-theme="dark"] .stats-card {
-    background-color: #2d3748 !important;
-    border: 1px solid #4a5568 !important;
+    background-color: #353535 !important;
+    border: 1px solid #595959 !important;
     color: #e2e8f0 !important;
 }
 
@@ -843,7 +857,7 @@ footer {
 }
 
 [data-theme="dark"] .table {
-    --bs-table-bg: #2d3748;
+    --bs-table-bg: #353535;
     --bs-table-color: #e2e8f0;
     --bs-table-border-color: #4a5568;
 }
@@ -878,23 +892,27 @@ footer {
 [data-theme="dark"] .modal-content {
     background-color: #2d3748;
     color: #e2e8f0;
-    border: 1px solid #4a5568;
+    border: 1px solid #353535;
 }
 
 [data-theme="dark"] .modal-header {
-    border-bottom: 1px solid #4a5568;
+    border-bottom: 1px solid #353535;
+}
+
+[data-theme="dark"] .form-control::placeholder{
+    color:white;
 }
 
 [data-theme="dark"] .form-control,
 [data-theme="dark"] .form-select {
-    background-color: #4a5568;
+    background-color: #353535;
     border-color: #718096;
     color: #e2e8f0;
 }
 
 [data-theme="dark"] .form-control:focus,
 [data-theme="dark"] .form-select:focus {
-    background-color: #4a5568;
+    background-color: #353535;
     border-color: #90cdf4;
     color: #e2e8f0;
     box-shadow: 0 0 0 0.2rem rgba(144, 205, 244, 0.25);
@@ -977,7 +995,7 @@ footer {
 }
 
 [data-theme="dark"] .theme-toggle-nav {
-    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    background: linear-gradient(135deg, #245579 0%, #f5576c 100%);
 }
 
 [data-theme="dark"] .navbar-toggler {
@@ -1012,6 +1030,10 @@ footer {
 
 [data-theme="dark"] .stock-row:hover {
     background-color: rgba(144, 205, 244, 0.1) !important;
+}
+
+.text-muted{
+    text-align: center;
 }
 
 /* Улучшенное мобильное меню */
@@ -1243,7 +1265,7 @@ footer {
 
 /* Мобильный список акций */
 .stock-mobile-item {
-    padding: 6px 8px;
+    padding: 6px 8px 12px 8px;
     border-bottom: 1px solid #e9ecef;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -1371,7 +1393,7 @@ footer {
 }
 
 [data-theme="dark"] .market-switcher {
-    background: #2d3748;
+    background: #353535;
 }
 
 [data-theme="dark"] .market-btn {
@@ -1645,7 +1667,7 @@ footer {
     border-bottom: 1px solid rgba(0,0,0,0.08);
 }
 [data-theme="dark"] .glass-nav {
-    background: rgba(45, 55, 72, 0.65) !important;
+    background: rgba(24, 24, 24, 0.65) !important;
     border-bottom-color: rgba(255,255,255,0.08);
 }
 /* Safe area for notches on iOS */
@@ -2176,7 +2198,7 @@ footer {
 }
 
 [data-theme="dark"] .tabbar {
-  background: rgba(45, 55, 72, 0.65) !important;
+  background: rgba(24, 24, 24, 0.65) !important;
   border-top: 1px solid rgba(255,255,255,0.1);
 }
 

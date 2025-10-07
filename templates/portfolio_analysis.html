@@ -12,8 +12,8 @@
 <div class="row mt-4 align-items-stretch g-3 kpi-row">
     <div class="col-lg-3 col-md-6 mb-3 d-flex">
         <div class="card kpi-card bg-primary text-white h-100 w-100">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center">
+            <div class="card-body" id="portfolio-stats">
+                <div class="d-flex justify-content-between align-items-center" id="portfolio-fl">
                     <div>
                         <h6 class="card-title">Общая стоимость</h6>
                         <h4 class="kpi-value">{{ "{:,.0f}".format(total_portfolio_value) }} ₽</h4>
@@ -26,8 +26,8 @@
 
     <div class="col-lg-3 col-md-6 mb-3 d-flex">
         <div class="card kpi-card bg-success text-white h-100 w-100">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center">
+            <div class="card-body" id="portfolio-stats">
+                <div class="d-flex justify-content-between align-items-center" id="portfolio-fl">
                     <div>
                         <h6 class="card-title">Прибыль/Убыток</h6>
                         <h4 class="kpi-value">{{ "{:+,.0f}".format(portfolio_stats.total_profit_loss) }} ₽</h4>
@@ -41,8 +41,8 @@
 
     <div class="col-lg-3 col-md-6 mb-3 d-flex">
         <div class="card kpi-card bg-info text-white h-100 w-100">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center">
+            <div class="card-body" id="portfolio-stats">
+                <div class="d-flex justify-content-between align-items-center" id="portfolio-fl">
                     <div>
                         <h6 class="card-title">Количество позиций</h6>
                         <h4 class="kpi-value">{{ positions_analysis|length }}</h4>
@@ -55,8 +55,8 @@
 
     <div class="col-lg-3 col-md-6 mb-3 d-flex">
         <div class="card kpi-card bg-warning text-white h-100 w-100">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center">
+            <div class="card-body" id="portfolio-stats">
+                <div class="d-flex justify-content-between align-items-center" id="portfolio-fl">
                     <div>
                         <h6 class="card-title">Свободные средства</h6>
                         <h4 class="kpi-value">{{ "{:,.0f}".format(portfolio_stats.total_balance) }} ₽</h4>
