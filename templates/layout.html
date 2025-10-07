@@ -176,6 +176,12 @@ document.addEventListener('DOMContentLoaded', function() {
     if (window.Telegram && window.Telegram.WebApp) {
       const tg = window.Telegram.WebApp;
       try { tg.ready(); tg.expand(); } catch (e) {}
+      // Request fullscreen (available since Telegram v8.0)
+      try {
+        if (typeof tg.requestFullscreen === 'function') {
+          tg.requestFullscreen();
+        }
+      } catch (e) {}
 
       applyTheme(tg.colorScheme, true);
 
