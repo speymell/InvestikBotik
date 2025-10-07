@@ -20,8 +20,8 @@ h5 { font-size: 1.125rem; }
 /* Мобильные оптимизации */
 @media (max-width: 768px) {
     .container {
-        padding-left: 10px;
-        padding-right: 10px;
+        padding-left: 12px;
+        padding-right: 12px;
     }
     
     /* Компактные карточки на мобильных */
@@ -76,8 +76,8 @@ h5 { font-size: 1.125rem; }
 /* Очень маленькие экраны */
 @media (max-width: 480px) {
     .container {
-        padding-left: 5px;
-        padding-right: 5px;
+        padding-left: 12px;
+        padding-right: 12px;
     }
     
     .card-body {
@@ -210,8 +210,16 @@ h5 { font-size: 1.125rem; }
 .turnover-nav .btn { padding: .15rem .4rem; }
 
 /* Alerts actions: bigger buttons with spacing */
-.alerts-actions { gap: 8px; }
+.alerts-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 .alerts-actions .btn { padding: .4rem .75rem !important; font-size: 0.95rem; }
+@media (max-width: 576px) {
+  .alerts-actions { justify-content: center; }
+  .alerts-actions .btn { padding: .35rem .55rem !important; font-size: 0.9rem; }
+}
+/* Safari fallback if flex gap is not supported */
+@supports not (gap: 8px) {
+  .alerts-actions .btn + .btn { margin-left: 8px; }
+}
 
 /* Make dark theme more neutral (less blue) */
 [data-theme="dark"] .btn-primary {
@@ -476,6 +484,14 @@ header .fs-4 {
 
 .card-body {
     padding: 12px;
+}
+
+/* Improve spacing in tight stat headers inside cards */
+.card .card-body .d-flex.justify-content-between { gap: 12px; }
+@media (max-width: 576px) {
+  .card .card-body .d-flex.justify-content-between i.fa-2x { font-size: 1.35rem; }
+  .card .card-body h4 { font-size: 1.25rem; margin-bottom: 0; }
+  .card .card-body h6.card-title { margin-bottom: 0.25rem; }
 }
 
 /* Улучшенные кнопки */
@@ -1570,6 +1586,12 @@ footer {
     overflow: hidden;
 }
 .chart-wrapper { height: 320px; position: relative; }
+/* Portfolio Analysis charts responsiveness */
+#instrumentChart,
+#sectorChart {
+  max-width: 100%;
+  width: 100% !important;
+}
 
 .page-link:hover {
     background-color: #667eea;
