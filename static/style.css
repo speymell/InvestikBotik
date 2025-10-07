@@ -494,6 +494,80 @@ header .fs-4 {
   .card .card-body h6.card-title { margin-bottom: 0.25rem; }
 }
 
+/* KPI cards unified styling for Portfolio Analysis */
+.kpi-row { row-gap: 1rem; }
+.kpi-card {
+  border: none;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  display: flex;
+}
+.kpi-card .card-body {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  padding: 1rem 1.25rem;
+}
+.kpi-card .card-title {
+  margin-bottom: .25rem;
+  font-weight: 600;
+  opacity: .95;
+}
+.kpi-card .kpi-value {
+  font-size: 1.5rem;
+  line-height: 1.15;
+  margin-bottom: 0;
+}
+.kpi-card .kpi-sub {
+  display: block;
+  margin-top: .125rem;
+  opacity: .92;
+}
+.kpi-card i.fa-2x { font-size: 1.5rem; opacity: .9; }
+@media (max-width: 576px) {
+  .kpi-card .kpi-value { font-size: 1.25rem; }
+  .kpi-card i.fa-2x { font-size: 1.35rem; }
+}
+
+/* Make KPI and Alerts top blocks look like dashboard stats-card */
+.kpi-card,
+.alerts-stats-row .card {
+  background: #ffffff !important;
+  color: #2d3748 !important;
+  border: none !important;
+  border-radius: 16px !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08) !important;
+}
+.kpi-card .card-body,
+.alerts-stats-row .card-body { padding: 1rem 1.25rem; }
+.kpi-card i.fa-2x,
+.alerts-stats-row i.fa-2x {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff !important;
+}
+/* Icon color themes mapped from original bg-* classes */
+.kpi-card.bg-primary i.fa-2x, .alerts-stats-row .bg-primary i.fa-2x { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+.kpi-card.bg-success i.fa-2x, .alerts-stats-row .bg-success i.fa-2x { background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); }
+.kpi-card.bg-info i.fa-2x, .alerts-stats-row .bg-info i.fa-2x { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+.kpi-card.bg-warning i.fa-2x, .alerts-stats-row .bg-warning i.fa-2x { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+
+/* Override text-white on cards to use standard text color */
+.kpi-card.text-white, .alerts-stats-row .text-white { color: #2d3748 !important; }
+.kpi-card.text-white h6, .kpi-card.text-white h4, .kpi-card.text-white small,
+.alerts-stats-row .text-white h6, .alerts-stats-row .text-white h4, .alerts-stats-row .text-white small { color: inherit !important; }
+
+[data-theme="dark"] .kpi-card,
+[data-theme="dark"] .alerts-stats-row .card {
+  background: #2d3748 !important;
+  color: #e2e8f0 !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4) !important;
+}
+
 /* Улучшенные кнопки */
 .btn {
     border-radius: 8px;
@@ -1061,6 +1135,12 @@ footer {
     flex-shrink: 0;
 }
 
+.stat-row{
+    display: flex;
+    width: 100%;
+    justify-content: space-between;
+}
+
 .compact-stat-inline-label {
     font-size: 0.875rem;
     color: #6c757d;
@@ -1585,7 +1665,16 @@ footer {
 .chart-card {
     overflow: hidden;
 }
-.chart-wrapper { height: 320px; position: relative; }
+.chart-wrapper { position: relative; width: 100%; max-width: 560px; aspect-ratio: 1 / 1; margin: 0 auto; }
+/* Ensure canvas fills wrapper for crisp non-stretched chart */
+.chart-wrapper canvas {
+  width: 100% !important;
+  height: 100% !important;
+  max-height: none !important;
+}
+@media (max-width: 576px) {
+  .chart-wrapper { max-width: 360px; }
+}
 /* Portfolio Analysis charts responsiveness */
 #instrumentChart,
 #sectorChart {

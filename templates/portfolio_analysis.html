@@ -9,66 +9,59 @@
 </div>
 
 <!-- Общая статистика -->
-<div class="row mt-4">
+<div class="row mt-4 align-items-stretch g-3 kpi-row">
     <div class="col-lg-3 col-md-6 mb-3 d-flex">
-        <div class="card bg-primary text-white h-100">
+        <div class="card kpi-card bg-primary text-white h-100 w-100">
             <div class="card-body">
-                <div class="d-flex justify-content-between">
+                <div class="d-flex justify-content-between align-items-center">
                     <div>
                         <h6 class="card-title">Общая стоимость</h6>
-                        <h4>{{ "{:,.0f}".format(total_portfolio_value) }} ₽</h4>
+                        <h4 class="kpi-value">{{ "{:,.0f}".format(total_portfolio_value) }} ₽</h4>
                     </div>
-                    <div class="align-self-center">
-                        <i class="fas fa-chart-line fa-2x"></i>
-                    </div>
+                    <i class="fas fa-chart-line fa-2x"></i>
+                </div>
             </div>
         </div>
     </div>
-    
+
     <div class="col-lg-3 col-md-6 mb-3 d-flex">
-        <div class="card bg-success text-white h-100">
+        <div class="card kpi-card bg-success text-white h-100 w-100">
             <div class="card-body">
-                <div class="d-flex justify-content-between">
+                <div class="d-flex justify-content-between align-items-center">
                     <div>
                         <h6 class="card-title">Прибыль/Убыток</h6>
-                        <h4>{{ "{:+,.0f}".format(portfolio_stats.total_profit_loss) }} ₽</h4>
-                        <small>{{ "{:+.1f}".format(portfolio_stats.total_profit_loss_percent) }}%</small>
+                        <h4 class="kpi-value">{{ "{:+,.0f}".format(portfolio_stats.total_profit_loss) }} ₽</h4>
+                        <small class="kpi-sub">{{ "{:+.1f}".format(portfolio_stats.total_profit_loss_percent) }}%</small>
                     </div>
-                    <div class="align-self-center">
-                        <i class="fas fa-{% if portfolio_stats.total_profit_loss >= 0 %}arrow-up{% else %}arrow-down{% endif %} fa-2x"></i>
-                    </div>
+                    <i class="fas fa-{% if portfolio_stats.total_profit_loss >= 0 %}arrow-up{% else %}arrow-down{% endif %} fa-2x"></i>
                 </div>
             </div>
         </div>
     </div>
-    
+
     <div class="col-lg-3 col-md-6 mb-3 d-flex">
-        <div class="card bg-info text-white h-100">
+        <div class="card kpi-card bg-info text-white h-100 w-100">
             <div class="card-body">
-                <div class="d-flex justify-content-between">
+                <div class="d-flex justify-content-between align-items-center">
                     <div>
                         <h6 class="card-title">Количество позиций</h6>
-                        <h4>{{ positions_analysis|length }}</h4>
+                        <h4 class="kpi-value">{{ positions_analysis|length }}</h4>
                     </div>
-                    <div class="align-self-center">
-                        <i class="fas fa-list fa-2x"></i>
-                    </div>
+                    <i class="fas fa-list fa-2x"></i>
                 </div>
             </div>
         </div>
     </div>
-    
+
     <div class="col-lg-3 col-md-6 mb-3 d-flex">
-        <div class="card bg-warning text-white h-100">
+        <div class="card kpi-card bg-warning text-white h-100 w-100">
             <div class="card-body">
-                <div class="d-flex justify-content-between">
+                <div class="d-flex justify-content-between align-items-center">
                     <div>
                         <h6 class="card-title">Свободные средства</h6>
-                        <h4>{{ "{:,.0f}".format(portfolio_stats.total_balance) }} ₽</h4>
+                        <h4 class="kpi-value">{{ "{:,.0f}".format(portfolio_stats.total_balance) }} ₽</h4>
                     </div>
-                    <div class="align-self-center">
-                        <i class="fas fa-wallet fa-2x"></i>
-                    </div>
+                    <i class="fas fa-wallet fa-2x"></i>
                 </div>
             </div>
         </div>
