@@ -14,15 +14,23 @@
                 
                 <!-- Проверяем, откуда пришел пользователь -->
                 <div id="loginOptions" class="d-grid gap-3">
+                    {% if not session.get('user_id') %}
                     <a href="{{ url_for('demo_login') }}" class="btn btn-primary btn-lg">
                         <i class="fas fa-play-circle me-2"></i>
                         Демо-режим
                     </a>
+                    {% else %}
+                    <!-- Demo button hidden for authenticated users -->
+                    {% endif %}
                 </div>
                 
+                    {% if not session.get('user_id') %}
                     <p class="small text-muted" id="loginInfo">
                         В демо-режиме вы можете протестировать все функции приложения.
                     </p>
+                    {% else %}
+                    <!-- Demo info hidden for authenticated users -->
+                    {% endif %}
                 </div>
 
     <script>

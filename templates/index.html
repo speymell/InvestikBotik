@@ -13,6 +13,8 @@
         <a href="{{ url_for('dashboard') }}" class="btn btn-primary btn-lg px-5 btn-action shadow">
           <i class="fas fa-briefcase me-2"></i>Мой портфель
         </a>
+        {% else %}
+        <!-- Demo visible only for non-authenticated users -->
         <a href="{{ url_for('demo_login') }}" class="btn btn-primary btn-lg px-5 btn-action shadow">
           <i class="fas fa-play-circle me-2"></i>Попробовать демо
         </a>
