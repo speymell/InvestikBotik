@@ -158,7 +158,7 @@
                 <!-- Мобильная версия -->
                 <div class="d-block d-md-none">
                     {% for stock in stocks.items %}
-                    <div class="stock-mobile-item" data-ticker="{{ stock.ticker }}" data-stock-id="{{ stock.id }}">
+                    <div class="stock-mobile-item pbsmi-2" data-ticker="{{ stock.ticker }}" data-stock-id="{{ stock.id }}">
                         <div class="d-flex align-items-center stock_card">
                             <div class="stock-mobile-logo">
                                 <img src="{{ stock.logo_url or ('https://ui-avatars.com/api/?name=' ~ stock.ticker ~ '&background=007bff&color=fff&size=40') }}" 

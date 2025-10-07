@@ -811,6 +811,11 @@ class StockAPIService:
         face_values_map: dict[ticker] -> face_value
         """
         try:
+            # Для очень больших выборок выгоднее опросить борды постранично
+            # и затем отфильтровать нужные SECID, чем бить по 20 тикеров.
+            if tickers and len(tickers) > 200:
+                return self.get_multiple_bond_prices_bulk(tickers, face_values_map, timeout)
+
             if len(tickers) > 20:
                 all_prices = {}
                 for i in range(0, len(tickers), 20):
@@ -857,6 +862,120 @@ class StockAPIService:
             return prices
         except Exception as e:
             logger.error(f"Ошибка получения массовых цен облигаций: {e}")
+            return {}
+
+    def get_multiple_bond_prices_bulk(self, tickers, face_values_map=None, timeout=10):
+        """Массовый сбор цен облигаций с бордов MOEX через постраничный marketdata.
+        Сильно уменьшает число HTTP-запросов по сравнению с пакетами по 20 тикеров.
+
+        tickers: Iterable[str] — список нужных SECID
+        face_values_map: dict[str, float] | None — номиналы облигаций (для перевода % в рубли)
+        timeout: int — таймаут запроса к MOEX
+
+        Возвращает: dict[ticker] = price_rub
+        """
+        try:
+            if not tickers:
+                return {}
+            wanted = set(tickers)
+            prices: dict[str, float] = {}
+            boards = ['TQCB', 'TQOB', 'TQIR']
+            # Минимальный набор колонок для вычисления цены
+            md_columns = 'SECID,LAST,LCURRENTPRICE,CLOSE,OPEN,MARKETPRICE2,WAPRICE'
+
+            for board in boards:
+                if len(prices) == len(wanted):
+                    break
+                start = 0
+                # Используем курсор для определения объёма данных
+                while True:
+                    try:
+                        url = f"{self.moex_base_url}/engines/stock/markets/bonds/boards/{board}/securities.json"
+                        params = {
+                            'iss.meta': 'off',
+                            # Берём только marketdata и курсор для минимизации payload
+                            'iss.only': 'marketdata,marketdata.cursor',
+                            'marketdata.columns': md_columns,
+                            'start': start,
+                        }
+                        resp = self.session.get(url, params=params, timeout=timeout)
+                        resp.raise_for_status()
+                        data = resp.json()
+
+                        md = data.get('marketdata', {})
+                        rows = md.get('data') or []
+                        if not rows:
+                            break
+                        cols = md.get('columns') or []
+                        try:
+                            secid_idx = cols.index('SECID')
+                        except ValueError:
+                            secid_idx = None
+                        # Предвычисляем индексы цен по приоритету
+                        idx = {
+                            'LAST': cols.index('LAST') if 'LAST' in cols else None,
+                            'LCURRENTPRICE': cols.index('LCURRENTPRICE') if 'LCURRENTPRICE' in cols else None,
+                            'CLOSE': cols.index('CLOSE') if 'CLOSE' in cols else None,
+                            'OPEN': cols.index('OPEN') if 'OPEN' in cols else None,
+                            'WAPRICE': cols.index('WAPRICE') if 'WAPRICE' in cols else None,
+                            'MARKETPRICE2': cols.index('MARKETPRICE2') if 'MARKETPRICE2' in cols else None,
+                        }
+
+                        for row in rows:
+                            if secid_idx is None:
+                                continue
+                            t = row[secid_idx]
+                            if t not in wanted or t in prices:
+                                continue
+                            # Достаём цену в процентах (приоритет как у _extract_bond_price_from_data)
+                            price_pct = None
+                            for k in ('LAST', 'LCURRENTPRICE', 'CLOSE', 'OPEN', 'WAPRICE', 'MARKETPRICE2'):
+                                i = idx.get(k)
+                                if i is not None:
+                                    v = row[i]
+                                    if v is not None:
+                                        try:
+                                            price_pct = float(v)
+                                            break
+                                        except Exception:
+                                            pass
+                            if price_pct is None:
+                                continue
+                            fv = (face_values_map or {}).get(t)
+                            price_rub = (price_pct / 100.0 * fv) if fv else price_pct
+                            prices[t] = price_rub
+
+                        # Постраничная навигация: увеличиваем offset на размер полученной страницы
+                        start += len(rows)
+
+                        # Если уже собрали всё, выходим из борда
+                        if len(prices) == len(wanted):
+                            break
+
+                        # Если есть курсор, можно завершить, когда достигли TOTAL
+                        cursor = data.get('marketdata.cursor', {})
+                        cur_rows = cursor.get('data') or []
+                        # marketdata.cursor обычно имеет колонки: TOTAL, PAGESIZE, ...
+                        if cur_rows and isinstance(cur_rows[0], list):
+                            try:
+                                # TOTAL может быть на первом месте — безопасно берём первый числовой элемент
+                                total = None
+                                for val in cur_rows[0]:
+                                    if isinstance(val, (int, float)):
+                                        total = int(val)
+                                        break
+                                if total is not None and start >= total:
+                                    break
+                            except Exception:
+                                pass
+
+                    except Exception as e:
+                        logger.warning(f"Ошибка постраничного получения облигаций на борде {board}: {e}")
+                        break
+
+            return prices
+        except Exception as e:
+            logger.error(f"Ошибка bulk-обновления цен облигаций: {e}")
             return {}
 
     def _get_stock_price(self, ticker, timeout=10):
