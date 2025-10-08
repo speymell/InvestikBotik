@@ -29,6 +29,16 @@ class Stock(db.Model):
     turnover = db.Column(db.Float, nullable=True)  # оборот за день (в валюте котировок, обычно рубли)
     volume = db.Column(db.BigInteger, nullable=True)  # количество бумаг за день (BIGINT для Postgres)
     change_pct = db.Column(db.Float, nullable=True)  # изменение цены за день, %
+    # Купонные/дивидендные метаданные (в основном для облигаций)
+    coupon_value = db.Column(db.Float, nullable=True)      # Сумма купона на 1 бумагу (в валюте бумаги)
+    coupon_percent = db.Column(db.Float, nullable=True)    # Купонная ставка, % годовых (если доступно)
+    coupon_period = db.Column(db.Integer, nullable=True)   # Периодичность купонов (в днях)
+    accrued_int = db.Column(db.Float, nullable=True)       # НКД (накопленный купонный доход)
+    next_coupon_date = db.Column(db.Date, nullable=True)   # Дата следующего купона
+    maturity_date = db.Column(db.Date, nullable=True)      # Дата погашения
+    lot_size = db.Column(db.Integer, nullable=True)        # Размер лота
+    currency = db.Column(db.String(12), nullable=True)     # Валюта котировок (обычно SUR)
+    isin = db.Column(db.String(36), nullable=True)         # ISIN
 
 class Transaction(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -65,3 +75,22 @@ class Alert(db.Model):
     created_at = db.Column(db.DateTime, server_default=db.func.now())
     last_triggered_at = db.Column(db.DateTime, nullable=True)
     stock = db.relationship('Stock', lazy=True)
+
+# Денежные потоки (купоны, дивиденды)
+class CashFlow(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    type = db.Column(db.String(20), nullable=False)  # 'coupon' | 'dividend'
+    account_id = db.Column(db.Integer, db.ForeignKey('account.id'), nullable=True)
+    stock_id = db.Column(db.Integer, db.ForeignKey('stock.id'), nullable=True)
+    ticker = db.Column(db.String(20), nullable=True)
+    currency = db.Column(db.String(12), nullable=True)
+    record_date = db.Column(db.Date, nullable=True)   # дата фиксации/дата купона
+    pay_date = db.Column(db.Date, nullable=True)      # дата выплаты (если отличается)
+    amount_per_security = db.Column(db.Float, nullable=True)
+    quantity_at_record = db.Column(db.Integer, nullable=True)
+    gross_amount = db.Column(db.Float, nullable=True)
+    net_amount = db.Column(db.Float, nullable=True)
+    created_at = db.Column(db.DateTime, server_default=db.func.now())
+    # Быстрые связи
+    stock = db.relationship('Stock', lazy=True)
+    account = db.relationship('Account', lazy=True)

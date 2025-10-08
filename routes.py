@@ -1,5 +1,5 @@
 from flask import render_template, request, jsonify, redirect, url_for, session
-from database import db, User, Account, Stock, Transaction, Watchlist, Alert
+from database import db, User, Account, Stock, Transaction, Watchlist, Alert, CashFlow
 from utils import calculate_portfolio_stats, get_top_stocks, calculate_account_stats
 import datetime
 import logging
@@ -166,6 +166,16 @@ def init_routes(app):
                 'message': f'Ошибка тестирования MOEX bonds API: {str(e)}',
                 'traceback': traceback.format_exc()
             }), 500
+
+    @app.route('/admin/register-coupons')
+    def register_coupons():
+        """Ручной триггер регистрации купонных выплат (для отладки)."""
+        try:
+            from stock_api import stock_api_service
+            created = stock_api_service.register_due_coupons()
+            return jsonify({'status': 'success', 'created': created})
+        except Exception as e:
+            return jsonify({'status': 'error', 'message': str(e)}), 500
     
     @app.route('/admin')
     def admin_panel():
@@ -567,6 +577,16 @@ def init_routes(app):
                         db.session.execute(db.text("ALTER TABLE stock ADD COLUMN IF NOT EXISTS turnover DOUBLE PRECISION"))
                         db.session.execute(db.text("ALTER TABLE stock ADD COLUMN IF NOT EXISTS volume BIGINT"))
                         db.session.execute(db.text("ALTER TABLE stock ADD COLUMN IF NOT EXISTS change_pct DOUBLE PRECISION"))
+                        # Купонные поля
+                        db.session.execute(db.text("ALTER TABLE stock ADD COLUMN IF NOT EXISTS coupon_value DOUBLE PRECISION"))
+                        db.session.execute(db.text("ALTER TABLE stock ADD COLUMN IF NOT EXISTS coupon_percent DOUBLE PRECISION"))
+                        db.session.execute(db.text("ALTER TABLE stock ADD COLUMN IF NOT EXISTS coupon_period INTEGER"))
+                        db.session.execute(db.text("ALTER TABLE stock ADD COLUMN IF NOT EXISTS accrued_int DOUBLE PRECISION"))
+                        db.session.execute(db.text("ALTER TABLE stock ADD COLUMN IF NOT EXISTS next_coupon_date DATE"))
+                        db.session.execute(db.text("ALTER TABLE stock ADD COLUMN IF NOT EXISTS maturity_date DATE"))
+                        db.session.execute(db.text("ALTER TABLE stock ADD COLUMN IF NOT EXISTS lot_size INTEGER"))
+                        db.session.execute(db.text("ALTER TABLE stock ADD COLUMN IF NOT EXISTS currency VARCHAR(12)"))
+                        db.session.execute(db.text("ALTER TABLE stock ADD COLUMN IF NOT EXISTS isin VARCHAR(36)"))
                     else:
                         # SQLite/MySQL: пробуем добавить, игнорируем ошибку, если колонка уже есть
                         try:
@@ -590,6 +610,27 @@ def init_routes(app):
                             db.session.execute(db.text("ALTER TABLE stock ADD COLUMN change_pct FLOAT"))
                         except Exception:
                             db.session.rollback()
+                        # Купонные поля
+                        for ddl in [
+                            "ALTER TABLE stock ADD COLUMN coupon_value FLOAT",
+                            "ALTER TABLE stock ADD COLUMN coupon_percent FLOAT",
+                            "ALTER TABLE stock ADD COLUMN coupon_period INTEGER",
+                            "ALTER TABLE stock ADD COLUMN accrued_int FLOAT",
+                            "ALTER TABLE stock ADD COLUMN next_coupon_date DATE",
+                            "ALTER TABLE stock ADD COLUMN maturity_date DATE",
+                            "ALTER TABLE stock ADD COLUMN lot_size INTEGER",
+                            "ALTER TABLE stock ADD COLUMN currency VARCHAR(12)",
+                            "ALTER TABLE stock ADD COLUMN isin VARCHAR(36)",
+                        ]:
+                            try:
+                                db.session.execute(db.text(ddl))
+                            except Exception:
+                                db.session.rollback()
+                    # Создаем недостающие таблицы (CashFlow)
+                    try:
+                        db.create_all()
+                    except Exception:
+                        db.session.rollback()
                     db.session.commit()
                 except Exception as mig_e:
                     logger.error(f"Auto-migration fails on index: {mig_e}")
@@ -1217,6 +1258,7 @@ def init_routes(app):
     app.add_url_rule('/api/update_all_prices', view_func=update_all_prices)
     app.add_url_rule('/admin/sync-bonds', view_func=sync_bonds)
     app.add_url_rule('/api/portfolio_history', view_func=get_portfolio_history)
+    app.add_url_rule('/api/income_summary', view_func=get_income_summary)
     # Watchlist & Alerts
     app.add_url_rule('/api/watchlist/toggle', view_func=toggle_watchlist, methods=['POST'])
     app.add_url_rule('/api/watchlist', view_func=get_watchlist)
@@ -1821,6 +1863,73 @@ def get_portfolio_history():
         return jsonify({'success': True, 'data': items})
     except Exception as e:
         logger.error(f"Ошибка истории портфеля: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+def get_income_summary():
+    """API: Суммарный доход (купоны/дивиденды) за период (по умолчанию YTD)."""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Не авторизован'}), 401
+    try:
+        import datetime as dt
+        from sqlalchemy import func, and_, or_
+        user_id = session['user_id']
+        period = (request.args.get('period') or 'YTD').upper()
+        today = dt.date.today()
+        start_date = dt.date(today.year, 1, 1)
+        end_date = today
+        # Опциональные параметры ?from=YYYY-MM-DD&to=YYYY-MM-DD
+        try:
+            f = request.args.get('from')
+            t = request.args.get('to')
+            if f:
+                start_date = dt.datetime.strptime(f, '%Y-%m-%d').date()
+            if t:
+                end_date = dt.datetime.strptime(t, '%Y-%m-%d').date()
+        except Exception:
+            pass
+
+        # Все счета пользователя
+        account_ids = [a.id for a in Account.query.filter_by(user_id=user_id).all()]
+        if not account_ids:
+            return jsonify({'success': True, 'period': period, 'from': start_date.isoformat(), 'to': end_date.isoformat(), 'total_coupons': 0.0, 'total_dividends': 0.0, 'total_income': 0.0, 'top_tickers': []})
+
+        # Фильтр по дате: используем pay_date, иначе record_date
+        date_filter = or_(
+            and_(CashFlow.pay_date != None, CashFlow.pay_date >= start_date, CashFlow.pay_date <= end_date),
+            and_(CashFlow.pay_date == None, CashFlow.record_date != None, CashFlow.record_date >= start_date, CashFlow.record_date <= end_date)
+        )
+
+        base = CashFlow.query.filter(CashFlow.account_id.in_(account_ids), date_filter)
+
+        def sum_amount(q, type_name):
+            return (q.filter(CashFlow.type == type_name)
+                      .with_entities(func.coalesce(func.sum(CashFlow.gross_amount), 0.0))
+                      .scalar()) or 0.0
+
+        total_coupons = float(sum_amount(base, 'coupon'))
+        total_dividends = float(sum_amount(base, 'dividend'))
+        total_income = float(total_coupons + total_dividends)
+
+        # Топ тикеров по доходу
+        rows = (base.with_entities(CashFlow.ticker, func.coalesce(func.sum(CashFlow.gross_amount), 0.0).label('s'))
+                     .group_by(CashFlow.ticker)
+                     .order_by(func.sum(CashFlow.gross_amount).desc())
+                     .limit(5)
+                     .all())
+        top_tickers = [{'ticker': r[0], 'amount': float(r[1])} for r in rows if r[0]]
+
+        return jsonify({
+            'success': True,
+            'period': period,
+            'from': start_date.isoformat(),
+            'to': end_date.isoformat(),
+            'total_coupons': round(total_coupons, 2),
+            'total_dividends': round(total_dividends, 2),
+            'total_income': round(total_income, 2),
+            'top_tickers': top_tickers
+        })
+    except Exception as e:
+        logger.error(f"Ошибка income_summary: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 # Вспомогательные функции (вне init_routes)

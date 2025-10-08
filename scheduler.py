@@ -36,6 +36,7 @@ class StockScheduler:
         """Основной цикл планировщика"""
         last_price_update = 0
         last_sync_update = 0
+        last_coupon_register = 0
         
         while self.running:
             try:
@@ -65,6 +66,16 @@ class StockScheduler:
                         last_sync_update = current_time
                     except Exception as e:
                         logger.error(f"Ошибка синхронизации бумаг: {e}")
+
+                # Регистрация купонных выплат раз в сутки
+                if current_time - last_coupon_register > 86400:  # 24 часа
+                    logger.info("Регистрируем купонные выплаты...")
+                    try:
+                        created = stock_api_service.register_due_coupons()
+                        logger.info(f"Создано записей CashFlow (coupon): {created}")
+                        last_coupon_register = current_time
+                    except Exception as e:
+                        logger.error(f"Ошибка регистрации купонов: {e}")
                 
                 # Спим 30 секунд перед следующей проверкой
                 time.sleep(30)

@@ -6,7 +6,7 @@
 import requests
 import json
 from datetime import datetime, timedelta
-from database import Stock, db
+from database import Stock, db, Account, Transaction, CashFlow
 import logging
 
 logger = logging.getLogger(__name__)
@@ -95,61 +95,128 @@ class StockAPIService:
     def get_all_bonds(self):
         """Получает список всех облигаций с MOEX"""
         try:
-            # Облигации на рынке bonds
-            url = f"{self.moex_base_url}/engines/stock/markets/bonds/securities.json"
-            params = {
-                'iss.meta': 'off',
-                'iss.only': 'securities',
-                'securities.columns': 'SECID,SHORTNAME,FACEVALUE,PREVPRICE'
-            }
-            response = self.session.get(url, params=params, timeout=30)
-            response.raise_for_status()
-            data = response.json()
-            if 'securities' not in data or 'data' not in data['securities']:
-                logger.error("Неверный формат ответа от MOEX API (bonds)")
-                return []
-            bonds_data = data['securities']['data']
-            columns = data['securities']['columns']
-
-            secid_idx = columns.index('SECID') if 'SECID' in columns else None
-            shortname_idx = columns.index('SHORTNAME') if 'SHORTNAME' in columns else None
-            facevalue_idx = columns.index('FACEVALUE') if 'FACEVALUE' in columns else None
-            prevprice_idx = columns.index('PREVPRICE') if 'PREVPRICE' in columns else None
-
+            # Облигации на рынке bonds, постранично с минимальными колонками + купонные поля
+            base_url = f"{self.moex_base_url}/engines/stock/markets/bonds/securities.json"
+            cols = (
+                'SECID,SHORTNAME,FACEVALUE,PREVPRICE,'
+                'COUPONVALUE,COUPONPERCENT,COUPONPERIOD,ACCRUEDINT,'
+                'NEXTCOUPON,MATDATE,LOTSIZE,CURRENCYID,ISIN'
+            )
+            start = 0
+            page_size = 500  # фактический размер определяется сервером; старт меняем по кол-ву строк
             bonds = []
-            for row in bonds_data:
+            while True:
                 try:
-                    ticker = row[secid_idx] if secid_idx is not None else None
-                    name = row[shortname_idx] if shortname_idx is not None else ticker
-                    face_value = float(row[facevalue_idx]) if facevalue_idx is not None and row[facevalue_idx] else None
-                    prevprice = None
-                    if prevprice_idx is not None and row[prevprice_idx] not in (None, ''):
+                    params = {
+                        'iss.meta': 'off',
+                        'iss.only': 'securities',
+                        'securities.columns': cols,
+                        'start': start,
+                    }
+                    response = self.session.get(base_url, params=params, timeout=30)
+                    response.raise_for_status()
+                    data = response.json()
+                    if 'securities' not in data or 'data' not in data['securities']:
+                        break
+                    rows = data['securities']['data'] or []
+                    columns = data['securities']['columns'] or []
+                    if not rows:
+                        break
+
+                    # Индексы колонок
+                    idx = {name: (columns.index(name) if name in columns else None) for name in [
+                        'SECID','SHORTNAME','FACEVALUE','PREVPRICE','COUPONVALUE','COUPONPERCENT','COUPONPERIOD',
+                        'ACCRUEDINT','NEXTCOUPON','MATDATE','LOTSIZE','CURRENCYID','ISIN'
+                    ]}
+
+                    for row in rows:
                         try:
-                            prevprice = float(row[prevprice_idx])
-                        except (ValueError, TypeError):
+                            ticker = row[idx['SECID']] if idx['SECID'] is not None else None
+                            name = row[idx['SHORTNAME']] if idx['SHORTNAME'] is not None else ticker
+                            face_value = None
+                            if idx['FACEVALUE'] is not None and row[idx['FACEVALUE']] not in (None, ''):
+                                try:
+                                    face_value = float(row[idx['FACEVALUE']])
+                                except Exception:
+                                    face_value = None
                             prevprice = None
+                            if idx['PREVPRICE'] is not None and row[idx['PREVPRICE']] not in (None, ''):
+                                try:
+                                    prevprice = float(row[idx['PREVPRICE']])
+                                except Exception:
+                                    prevprice = None
 
-                    # Цена облигации на MOEX часто в процентах от номинала
-                    price = 0.0
-                    if prevprice and face_value:
-                        price = (prevprice / 100.0) * face_value
+                            coupon_value = None
+                            if idx['COUPONVALUE'] is not None and row[idx['COUPONVALUE']] not in (None, ''):
+                                try:
+                                    coupon_value = float(row[idx['COUPONVALUE']])
+                                except Exception:
+                                    coupon_value = None
+                            coupon_percent = None
+                            if idx['COUPONPERCENT'] is not None and row[idx['COUPONPERCENT']] not in (None, ''):
+                                try:
+                                    coupon_percent = float(row[idx['COUPONPERCENT']])
+                                except Exception:
+                                    coupon_percent = None
+                            coupon_period = None
+                            if idx['COUPONPERIOD'] is not None and row[idx['COUPONPERIOD']] not in (None, ''):
+                                try:
+                                    coupon_period = int(row[idx['COUPONPERIOD']])
+                                except Exception:
+                                    coupon_period = None
+                            accrued_int = None
+                            if idx['ACCRUEDINT'] is not None and row[idx['ACCRUEDINT']] not in (None, ''):
+                                try:
+                                    accrued_int = float(row[idx['ACCRUEDINT']])
+                                except Exception:
+                                    accrued_int = None
+                            next_coupon = row[idx['NEXTCOUPON']] if idx['NEXTCOUPON'] is not None else None
+                            matdate = row[idx['MATDATE']] if idx['MATDATE'] is not None else None
+                            lot_size = None
+                            if idx['LOTSIZE'] is not None and row[idx['LOTSIZE']] not in (None, ''):
+                                try:
+                                    lot_size = int(row[idx['LOTSIZE']])
+                                except Exception:
+                                    lot_size = None
+                            currency = row[idx['CURRENCYID']] if idx['CURRENCYID'] is not None else None
+                            isin = row[idx['ISIN']] if idx['ISIN'] is not None else None
 
-                    if ticker and name:
-                        bonds.append({
-                            'ticker': ticker,
-                            'name': name,
-                            'price': price,
-                            'sector': 'Облигации',
-                            'description': f"Российская облигация {name}",
-                            'logo_url': self._get_logo_url(ticker),
-                            'instrument_type': 'bond',
-                            'face_value': face_value
-                        })
-                except Exception as e:
-                    logger.warning(f"Ошибка обработки облигации: {e}")
-                    continue
+                            # Цена облигации: PREVPRICE обычно в % от номинала
+                            price = 0.0
+                            if prevprice and face_value:
+                                price = (prevprice / 100.0) * face_value
 
-            logger.info(f"Получено {len(bonds)} облигаций с MOEX")
+                            if ticker and name:
+                                bonds.append({
+                                    'ticker': ticker,
+                                    'name': name,
+                                    'price': price,
+                                    'sector': 'Облигации',
+                                    'description': f"Российская облигация {name}",
+                                    'logo_url': self._get_logo_url(ticker),
+                                    'instrument_type': 'bond',
+                                    'face_value': face_value,
+                                    'coupon_value': coupon_value,
+                                    'coupon_percent': coupon_percent,
+                                    'coupon_period': coupon_period,
+                                    'accrued_int': accrued_int,
+                                    'next_coupon_date': next_coupon,
+                                    'maturity_date': matdate,
+                                    'lot_size': lot_size,
+                                    'currency': currency,
+                                    'isin': isin,
+                                })
+                        except Exception as e:
+                            logger.warning(f"Ошибка обработки облигации: {e}")
+                            continue
+
+                    start += len(rows)
+
+                except Exception as page_e:
+                    logger.warning(f"Ошибка страницы облигаций: {page_e}")
+                    break
+
+            logger.info(f"Получено {len(bonds)} облигаций с MOEX (paged)")
             return bonds
 
         except Exception as e:
@@ -372,45 +439,6 @@ class StockAPIService:
             stock['logo_url'] = self._get_logo_url(stock['ticker'])
         
         return fallback_stocks
-    
-    def _get_fallback_bonds(self):
-        """Резервный список облигаций (OFZ) на случай недоступности API."""
-        try:
-            items = [
-                {
-                    'ticker': 'SU26238RMFS6',
-                    'name': 'ОФЗ 26238',
-                    'face_value': 1000.0,
-                    'price': 990.0,
-                    'sector': 'Облигации',
-                    'description': 'Гос. облигация федерального займа 26238',
-                    'logo_url': self._get_logo_url('SU26238RMFS6'),
-                    'instrument_type': 'bond'
-                },
-                {
-                    'ticker': 'SU26239RMFS7',
-                    'name': 'ОФЗ 26239',
-                    'face_value': 1000.0,
-                    'price': 1012.5,
-                    'sector': 'Облигации',
-                    'description': 'Гос. облигация федерального займа 26239',
-                    'logo_url': self._get_logo_url('SU26239RMFS7'),
-                    'instrument_type': 'bond'
-                },
-                {
-                    'ticker': 'SU26240RMFS5',
-                    'name': 'ОФЗ 26240',
-                    'face_value': 1000.0,
-                    'price': 975.3,
-                    'sector': 'Облигации',
-                    'description': 'Гос. облигация федерального займа 26240',
-                    'logo_url': self._get_logo_url('SU26240RMFS5'),
-                    'instrument_type': 'bond'
-                }
-            ]
-            return items
-        except Exception:
-            return []
     
     def get_stock_history(self, ticker, days=1):
         """Получает историю цен акции с MOEX"""
@@ -811,11 +839,6 @@ class StockAPIService:
         face_values_map: dict[ticker] -> face_value
         """
         try:
-            # Для очень больших выборок выгоднее опросить борды постранично
-            # и затем отфильтровать нужные SECID, чем бить по 20 тикеров.
-            if tickers and len(tickers) > 200:
-                return self.get_multiple_bond_prices_bulk(tickers, face_values_map, timeout)
-
             if len(tickers) > 20:
                 all_prices = {}
                 for i in range(0, len(tickers), 20):
@@ -862,120 +885,6 @@ class StockAPIService:
             return prices
         except Exception as e:
             logger.error(f"Ошибка получения массовых цен облигаций: {e}")
-            return {}
-
-    def get_multiple_bond_prices_bulk(self, tickers, face_values_map=None, timeout=10):
-        """Массовый сбор цен облигаций с бордов MOEX через постраничный marketdata.
-        Сильно уменьшает число HTTP-запросов по сравнению с пакетами по 20 тикеров.
-
-        tickers: Iterable[str] — список нужных SECID
-        face_values_map: dict[str, float] | None — номиналы облигаций (для перевода % в рубли)
-        timeout: int — таймаут запроса к MOEX
-
-        Возвращает: dict[ticker] = price_rub
-        """
-        try:
-            if not tickers:
-                return {}
-            wanted = set(tickers)
-            prices: dict[str, float] = {}
-            boards = ['TQCB', 'TQOB', 'TQIR']
-            # Минимальный набор колонок для вычисления цены
-            md_columns = 'SECID,LAST,LCURRENTPRICE,CLOSE,OPEN,MARKETPRICE2,WAPRICE'
-
-            for board in boards:
-                if len(prices) == len(wanted):
-                    break
-                start = 0
-                # Используем курсор для определения объёма данных
-                while True:
-                    try:
-                        url = f"{self.moex_base_url}/engines/stock/markets/bonds/boards/{board}/securities.json"
-                        params = {
-                            'iss.meta': 'off',
-                            # Берём только marketdata и курсор для минимизации payload
-                            'iss.only': 'marketdata,marketdata.cursor',
-                            'marketdata.columns': md_columns,
-                            'start': start,
-                        }
-                        resp = self.session.get(url, params=params, timeout=timeout)
-                        resp.raise_for_status()
-                        data = resp.json()
-
-                        md = data.get('marketdata', {})
-                        rows = md.get('data') or []
-                        if not rows:
-                            break
-                        cols = md.get('columns') or []
-                        try:
-                            secid_idx = cols.index('SECID')
-                        except ValueError:
-                            secid_idx = None
-                        # Предвычисляем индексы цен по приоритету
-                        idx = {
-                            'LAST': cols.index('LAST') if 'LAST' in cols else None,
-                            'LCURRENTPRICE': cols.index('LCURRENTPRICE') if 'LCURRENTPRICE' in cols else None,
-                            'CLOSE': cols.index('CLOSE') if 'CLOSE' in cols else None,
-                            'OPEN': cols.index('OPEN') if 'OPEN' in cols else None,
-                            'WAPRICE': cols.index('WAPRICE') if 'WAPRICE' in cols else None,
-                            'MARKETPRICE2': cols.index('MARKETPRICE2') if 'MARKETPRICE2' in cols else None,
-                        }
-
-                        for row in rows:
-                            if secid_idx is None:
-                                continue
-                            t = row[secid_idx]
-                            if t not in wanted or t in prices:
-                                continue
-                            # Достаём цену в процентах (приоритет как у _extract_bond_price_from_data)
-                            price_pct = None
-                            for k in ('LAST', 'LCURRENTPRICE', 'CLOSE', 'OPEN', 'WAPRICE', 'MARKETPRICE2'):
-                                i = idx.get(k)
-                                if i is not None:
-                                    v = row[i]
-                                    if v is not None:
-                                        try:
-                                            price_pct = float(v)
-                                            break
-                                        except Exception:
-                                            pass
-                            if price_pct is None:
-                                continue
-                            fv = (face_values_map or {}).get(t)
-                            price_rub = (price_pct / 100.0 * fv) if fv else price_pct
-                            prices[t] = price_rub
-
-                        # Постраничная навигация: увеличиваем offset на размер полученной страницы
-                        start += len(rows)
-
-                        # Если уже собрали всё, выходим из борда
-                        if len(prices) == len(wanted):
-                            break
-
-                        # Если есть курсор, можно завершить, когда достигли TOTAL
-                        cursor = data.get('marketdata.cursor', {})
-                        cur_rows = cursor.get('data') or []
-                        # marketdata.cursor обычно имеет колонки: TOTAL, PAGESIZE, ...
-                        if cur_rows and isinstance(cur_rows[0], list):
-                            try:
-                                # TOTAL может быть на первом месте — безопасно берём первый числовой элемент
-                                total = None
-                                for val in cur_rows[0]:
-                                    if isinstance(val, (int, float)):
-                                        total = int(val)
-                                        break
-                                if total is not None and start >= total:
-                                    break
-                            except Exception:
-                                pass
-
-                    except Exception as e:
-                        logger.warning(f"Ошибка постраничного получения облигаций на борде {board}: {e}")
-                        break
-
-            return prices
-        except Exception as e:
-            logger.error(f"Ошибка bulk-обновления цен облигаций: {e}")
             return {}
 
     def _get_stock_price(self, ticker, timeout=10):
@@ -1111,99 +1020,6 @@ class StockAPIService:
             logger.error(f"Ошибка получения цены для {ticker}: {e}")
             return None
 
-    def _extract_bond_price_from_data(self, data, ticker, board, face_value=None):
-        """Извлекает цену облигации из данных MOEX API (конвертирует из % в рубли)"""
-        try:
-            # 1. Пытаемся получить цену из marketdata (текущие торговые данные)
-            if ('marketdata' in data and 'data' in data['marketdata'] and 
-                len(data['marketdata']['data']) > 0):
-                
-                columns = data['marketdata']['columns']
-                row = data['marketdata']['data'][0]
-                market = dict(zip(columns, row))
-                
-                # Для облигаций цена обычно в процентах от номинала
-                price_pct = (
-                    market.get('LAST')
-                    or market.get('LCURRENTPRICE')
-                    or market.get('CLOSE')
-                    or market.get('OPEN')
-                    or market.get('WAPRICE')
-                    or market.get('MARKETPRICE2')
-                )
-                
-                if price_pct and price_pct > 0:
-                    # Конвертируем из процентов в рубли
-                    if face_value:
-                        price_rub = (float(price_pct) / 100.0) * face_value
-                        logger.info(f"Получена цена облигации {ticker} из marketdata с площадки {board}: {price_pct}% = {price_rub} руб")
-                        return price_rub
-                    else:
-                        logger.info(f"Получена цена облигации {ticker} из marketdata с площадки {board}: {price_pct}% (номинал неизвестен)")
-                        return float(price_pct)
-            
-            # 2. Пытаемся получить цену из securities (информация о ценных бумагах)
-            if ('securities' in data and 'data' in data['securities'] and 
-                len(data['securities']['data']) > 0):
-                
-                columns = data['securities']['columns']
-                row = data['securities']['data'][0]
-                security = dict(zip(columns, row))
-                
-                # Получаем номинал из данных, если не передан
-                if not face_value:
-                    face_value = security.get('FACEVALUE') or security.get('NOMINAL')
-                    if face_value:
-                        face_value = float(face_value)
-                
-                price_pct = (
-                    security.get('PREVPRICE')
-                    or security.get('LAST')
-                    or security.get('MARKETPRICE')
-                    or security.get('LCURRENTPRICE')
-                    or security.get('MARKETPRICE2')
-                    or security.get('CLOSE')
-                    or security.get('OPEN')
-                    or security.get('PREVADMITTEDQUOTE')
-                )
-                
-                if price_pct and price_pct > 0:
-                    if face_value:
-                        price_rub = (float(price_pct) / 100.0) * face_value
-                        logger.info(f"Получена цена облигации {ticker} из securities с площадки {board}: {price_pct}% = {price_rub} руб")
-                        return price_rub
-                    else:
-                        logger.info(f"Получена цена облигации {ticker} из securities с площадки {board}: {price_pct}% (номинал неизвестен)")
-                        return float(price_pct)
-            
-            # 3. Пробуем историю торгов для облигаций
-            logger.info(f"Пытаемся получить цену облигации {ticker} из истории торгов площадки {board}")
-            history_url = f"{self.moex_base_url}/history/engines/stock/markets/bonds/boards/{board}/securities/{ticker}.json"
-            params = {'iss.meta': 'off', 'iss.only': 'history', 'history.columns': 'TRADEDATE,CLOSE', 'limit': 1}
-            
-            response = self.session.get(history_url, params=params, timeout=5)
-            response.raise_for_status()
-            
-            hist_data = response.json()
-            if 'history' in hist_data and 'data' in hist_data['history'] and len(hist_data['history']['data']) > 0:
-                row = hist_data['history']['data'][0]
-                if row and len(row) >= 2 and row[1]:
-                    price_pct = float(row[1])
-                    if face_value:
-                        price_rub = (price_pct / 100.0) * face_value
-                        logger.info(f"Получена цена облигации {ticker} из истории площадки {board}: {price_pct}% = {price_rub} руб")
-                        return price_rub
-                    else:
-                        logger.info(f"Получена цена облигации {ticker} из истории площадки {board}: {price_pct}%")
-                        return price_pct
-            
-            logger.warning(f"Не удалось получить цену облигации {ticker} с площадки {board}")
-            return None
-            
-        except Exception as e:
-            logger.error(f"Ошибка получения цены облигации {ticker}: {e}")
-            return None
-
     def _normalize_ticker(self, ticker: str) -> str:
         """Нормализует тикер для MOEX (например, YNDX -> YDEX). Возвращает SECID для запросов."""
         try:
@@ -1306,30 +1122,47 @@ class StockAPIService:
         try:
             bonds_data = self.get_all_bonds()
             if not bonds_data:
-                logger.warning("MOEX bonds API вернул пусто. Используем fallback облигации.")
-                bonds_data = self._get_fallback_bonds()
-                if not bonds_data:
-                    logger.error("Не удалось получить данные об облигациях и fallback пуст")
-                    return {'success': False, 'error': 'no_data'}
+                logger.error("Не удалось получить данные об облигациях")
+                return {'success': False, 'error': 'no_data'}
 
             added_count = 0
             updated_count = 0
             for bond in bonds_data:
                 try:
                     existing = Stock.query.filter_by(ticker=bond['ticker']).first()
+                    # Парсинг дат
+                    def _parse_date(val):
+                        try:
+                            if isinstance(val, str) and val and val != '0000-00-00':
+                                return datetime.strptime(val, '%Y-%m-%d').date()
+                        except Exception:
+                            return None
+                        return val if not isinstance(val, str) else None
+
+                    next_coupon_date = _parse_date(bond.get('next_coupon_date'))
+                    maturity_date = _parse_date(bond.get('maturity_date'))
+
                     if existing:
                         existing.name = bond['name']
                         existing.price = bond['price']
-                        existing.sector = bond['sector']
+                        existing.sector = bond.get('sector') or 'Облигации'
                         existing.description = bond.get('description') or existing.description
                         existing.logo_url = bond.get('logo_url') or existing.logo_url
                         # Новые поля
-                        try:
+                        if hasattr(existing, 'instrument_type'):
                             existing.instrument_type = 'bond'
-                        except Exception:
-                            pass
-                        try:
+                        if hasattr(existing, 'face_value'):
                             existing.face_value = bond.get('face_value')
+                        try:
+                            existing.coupon_value = bond.get('coupon_value')
+                            existing.coupon_percent = bond.get('coupon_percent')
+                            existing.coupon_period = bond.get('coupon_period')
+                            existing.accrued_int = bond.get('accrued_int')
+                            existing.lot_size = bond.get('lot_size')
+                            existing.currency = bond.get('currency')
+                            existing.isin = bond.get('isin')
+                            existing.next_coupon_date = next_coupon_date
+                            existing.maturity_date = maturity_date
                         except Exception:
                             pass
                         updated_count += 1
@@ -1338,12 +1171,25 @@ class StockAPIService:
                             ticker=bond['ticker'],
                             name=bond['name'],
                             price=bond['price'],
-                            sector=bond['sector'],
+                            sector=bond.get('sector') or 'Облигации',
                             description=bond.get('description', ''),
                             logo_url=bond.get('logo_url', ''),
                             instrument_type='bond',
                             face_value=bond.get('face_value')
                         )
+                        # Доп поля
+                        try:
+                            new_sec.coupon_value = bond.get('coupon_value')
+                            new_sec.coupon_percent = bond.get('coupon_percent')
+                            new_sec.coupon_period = bond.get('coupon_period')
+                            new_sec.accrued_int = bond.get('accrued_int')
+                            new_sec.lot_size = bond.get('lot_size')
+                            new_sec.currency = bond.get('currency')
+                            new_sec.isin = bond.get('isin')
+                            new_sec.next_coupon_date = next_coupon_date
+                            new_sec.maturity_date = maturity_date
+                        except Exception:
+                            pass
                         db.session.add(new_sec)
                         added_count += 1
                 except Exception as e:
@@ -1358,6 +1204,84 @@ class StockAPIService:
             logger.error(f"Ошибка синхронизации облигаций: {e}")
             db.session.rollback()
             return {'success': False, 'error': str(e)}
+
+    def register_due_coupons(self):
+        """Регистрирует купонные выплаты в таблице CashFlow на дату next_coupon_date.
+        Простая модель: если today >= next_coupon_date, фиксируем выплату для всех аккаунтов с позицией.
+        """
+        try:
+            today = datetime.now().date()
+            bonds = Stock.query.filter_by(instrument_type='bond').all()
+            created = 0
+            for b in bonds:
+                try:
+                    if not getattr(b, 'next_coupon_date', None):
+                        continue
+                    if b.next_coupon_date > today:
+                        continue
+                    # Определяем выплату на 1 бумагу
+                    amount_per = None
+                    if b.coupon_value and b.coupon_value > 0:
+                        amount_per = float(b.coupon_value)
+                    elif b.coupon_percent and b.face_value and b.coupon_period:
+                        try:
+                            amount_per = float(b.face_value) * (float(b.coupon_percent) / 100.0) * (float(b.coupon_period) / 365.0)
+                        except Exception:
+                            amount_per = None
+                    if not amount_per or amount_per <= 0:
+                        continue
+
+                    # По всем аккаунтам считаем позицию и создаем CashFlow при наличии
+                    accounts = Account.query.all()
+                    for acc in accounts:
+                        try:
+                            txs = Transaction.query.filter_by(account_id=acc.id, stock_id=b.id).filter(
+                                Transaction.type.in_(['buy', 'sell'])
+                            ).all()
+                            qty = 0
+                            for t in txs:
+                                if t.type == 'buy':
+                                    qty += (t.quantity or 0)
+                                elif t.type == 'sell':
+                                    qty -= (t.quantity or 0)
+                            if qty <= 0:
+                                continue
+                            # Проверяем, не создан ли уже CashFlow
+                            exists = CashFlow.query.filter_by(
+                                type='coupon', account_id=acc.id, stock_id=b.id, pay_date=b.next_coupon_date
+                            ).first()
+                            if exists:
+                                continue
+                            gross = round(amount_per * qty, 6)
+                            cf = CashFlow(
+                                type='coupon',
+                                account_id=acc.id,
+                                stock_id=b.id,
+                                ticker=b.ticker,
+                                currency=b.currency or 'SUR',
+                                record_date=b.next_coupon_date,
+                                pay_date=b.next_coupon_date,
+                                amount_per_security=amount_per,
+                                quantity_at_record=qty,
+                                gross_amount=gross,
+                                net_amount=None,
+                            )
+                            db.session.add(cf)
+                            created += 1
+                        except Exception as acc_e:
+                            logger.warning(f"CashFlow coupon error for {b.ticker} acc {acc.id}: {acc_e}")
+                            continue
+            if created:
+                db.session.commit()
+            logger.info(f"Купонные выплаты зафиксированы: {created}")
+            return created
+        except Exception as e:
+            logger.error(f"Ошибка регистрации купонов: {e}")
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
+            return 0
 
 # Глобальный экземпляр сервиса
 stock_api_service = StockAPIService()

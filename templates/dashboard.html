@@ -1,7 +1,7 @@
 {% extends 'layout.html' %}
 
 {% block content %}
-<div class="row">
+<div class="row dash-row">
     <div class="col-md-12">
         <div class="d-flex justify-content-between align-items-center mb-2">
             <h2 class="mb-0">Привет, {{ user.username }}😎!</h2>
@@ -9,6 +9,71 @@
         </div>
     </div>
 </div>
+
+<!-- Суммарный доход: купоны/дивиденды (YTD по умолчанию) -->
+<div class="row mt-4">
+  <div class="col-md-12">
+    <div class="card glass-card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Суммарный доход</h5>
+        <small class="text-muted">Период: <span id="incomePeriod">YTD</span></small>
+      </div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-lg-4 col-md-6">
+            <div class="kpi-card text-white bg-success">
+              <div class="card-body">
+                <i class="fas fa-file-invoice-dollar fa-2x"></i>
+                <div class="ms-3">
+                  <h6 class="card-title mb-1">Купоны</h6>
+                  <h4 class="kpi-value" id="incomeCoupons">—</h4>
+                  <small class="kpi-sub">Получено за период</small>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-lg-4 col-md-6">
+            <div class="kpi-card text-white bg-info">
+              <div class="card-body">
+                <i class="fas fa-hand-holding-usd fa-2x"></i>
+                <div class="ms-3">
+                  <h6 class="card-title mb-1">Дивиденды</h6>
+                  <h4 class="kpi-value" id="incomeDividends">—</h4>
+                  <small class="kpi-sub">Получено за период</small>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-lg-4 col-md-12">
+            <div class="kpi-card text-white bg-warning">
+              <div class="card-body">
+                <i class="fas fa-sack-dollar fa-2x"></i>
+                <div class="ms-3">
+                  <h6 class="card-title mb-1">Итого доход</h6>
+                  <h4 class="kpi-value" id="incomeTotal">—</h4>
+                  <small class="kpi-sub">Купоны + дивиденды</small>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row mt-3">
+          <div class="col-lg-6">
+            <div class="card h-100">
+              <div class="card-body">
+                <h6 class="mb-2">Топ выплат по тикерам</h6>
+                <ul class="list-unstyled mb-0" id="incomeTopList">
+                  <li class="text-muted">Нет данных для периода</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  </div>
 
 <style>
 /* Lightweight avatar styles (kept local to dashboard to avoid CSS bloat) */

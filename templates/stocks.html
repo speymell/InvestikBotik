@@ -108,6 +108,9 @@
                                 <th>Акция</th>
                                 <th style="width: 180px;">Сектор</th>
                                 <th style="width: 140px;" class="text-end">Цена</th>
+                                {% if ins_type == 'bond' %}
+                                <th style="width: 220px;" class="text-end">Купоны</th>
+                                {% endif %}
                             </tr>
                         </thead>
                         <tbody>
@@ -149,6 +152,27 @@
                                         {% endif %}
                                     </div>
                                 </td>
+                                {% if ins_type == 'bond' %}
+                                <td class="text-end">
+                                    <div class="d-flex flex-column align-items-end small text-muted">
+                                        {% if stock.accrued_int is not none %}
+                                        <div><span class="badge bg-info-subtle text-dark">НКД: {{ "%.2f"|format(stock.accrued_int) }} {{ stock.currency or '₽' }}</span></div>
+                                        {% endif %}
+                                        <div>
+                                            {% if stock.coupon_value %}
+                                                <span class="badge bg-success-subtle text-dark">Купон: {{ "%.2f"|format(stock.coupon_value) }} {{ stock.currency or '₽' }}</span>
+                                            {% elif stock.coupon_percent %}
+                                                <span class="badge bg-success-subtle text-dark">Купон: {{ "%.2f"|format(stock.coupon_percent) }}%</span>
+                                            {% else %}
+                                                <span class="text-muted">Купон: н/д</span>
+                                            {% endif %}
+                                        </div>
+                                        {% if stock.next_coupon_date %}
+                                        <div><span class="badge bg-secondary-subtle text-dark">След. купон: {{ stock.next_coupon_date }}</span></div>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                {% endif %}
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -173,6 +197,21 @@
                                             <span class="badge bg-primary mobile-badge">{{ stock.sector }}</span>
                                         {% else %}
                                             <span class="badge bg-secondary mobile-badge">Прочие</span>
+                                        {% endif %}
+                                        {% if ins_type == 'bond' %}
+                                        <div class="mt-1 small text-muted">
+                                            {% if stock.accrued_int is not none %}
+                                            <span class="badge bg-info-subtle text-dark me-1">НКД: {{ "%.2f"|format(stock.accrued_int) }} {{ stock.currency or '₽' }}</span>
+                                            {% endif %}
+                                            {% if stock.coupon_value %}
+                                            <span class="badge bg-success-subtle text-dark me-1">Купон: {{ "%.2f"|format(stock.coupon_value) }} {{ stock.currency or '₽' }}</span>
+                                            {% elif stock.coupon_percent %}
+                                            <span class="badge bg-success-subtle text-dark me-1">Купон: {{ "%.2f"|format(stock.coupon_percent) }}%</span>
+                                            {% endif %}
+                                            {% if stock.next_coupon_date %}
+                                            <span class="badge bg-secondary-subtle text-dark">След.: {{ stock.next_coupon_date }}</span>
+                                            {% endif %}
+                                        </div>
                                         {% endif %}
                                     </div>
                                     <div class="text-end">

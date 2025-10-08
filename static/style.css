@@ -1186,6 +1186,10 @@ footer {
     color: #e2e8f0;
 }
 
+.dash-row{
+    margin-top: 20px;
+}
+
 @media (max-width: 768px) {
     .compact-stat-inline {
         flex-direction: row;
