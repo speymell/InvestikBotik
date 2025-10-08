@@ -1271,6 +1271,9 @@ class StockAPIService:
                         except Exception as acc_e:
                             logger.warning(f"CashFlow coupon error for {b.ticker} acc {acc.id}: {acc_e}")
                             continue
+                except Exception as bond_e:
+                    logger.warning(f"Coupon register error for {getattr(b, 'ticker', 'unknown')}: {bond_e}")
+                    continue
             if created:
                 db.session.commit()
             logger.info(f"Купонные выплаты зафиксированы: {created}")
