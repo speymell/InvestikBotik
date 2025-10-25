@@ -3,7 +3,7 @@
 {% block content %}
 <div class="px-4 py-5 my-5 text-center fade-in">
     <div class="mb-4">
-        <i class="fas fa-chart-line fa-5x mb-3" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"></i>
+        <i class="fas fa-chart-line fa-5x mb-3" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;"></i>
     </div>
     <h1 class="display-4 fw-bold mb-3">InvestBot</h1>
     <div class="col-lg-8 mx-auto">
@@ -14,10 +14,20 @@
           <i class="fas fa-briefcase me-2"></i>Мой портфель
         </a>
         {% else %}
-        <!-- Demo visible only for non-authenticated users -->
-        <a href="{{ url_for('demo_login') }}" class="btn btn-primary btn-lg px-5 btn-action shadow">
+        <!-- Demo visible only for non-authenticated users and NOT in Telegram -->
+        <a href="{{ url_for('demo_login') }}" class="btn btn-primary btn-lg px-5 btn-action shadow" id="demoBtn">
           <i class="fas fa-play-circle me-2"></i>Попробовать демо
         </a>
+        <script>
+          // Скрываем кнопку демо если пользователь в Telegram Web App
+          (function() {
+            const tg = (window.Telegram && window.Telegram.WebApp) ? window.Telegram.WebApp : null;
+            if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) {
+              const demoBtn = document.getElementById('demoBtn');
+              if (demoBtn) demoBtn.style.display = 'none';
+            }
+          })();
+        </script>
         {% endif %}
         <a href="{{ url_for('stocks') }}" class="btn btn-outline-primary btn-lg px-5 btn-action">
           <i class="fas fa-chart-bar me-2"></i>Инвестиции

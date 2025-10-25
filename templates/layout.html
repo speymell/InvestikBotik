@@ -39,7 +39,7 @@
     <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 </head>
-<body data-logged-in="{{ '1' if session.get('user_id') else '0' }}">
+<body data-logged-in="{{ '1' if session.get('user_id') else '0' }}" data-is-demo="{{ '1' if is_demo_user else '0' }}">
 
 <!-- Desktop Navbar -->
 <nav class="navbar navbar-expand-lg glass-nav d-none d-md-block">
@@ -209,13 +209,15 @@ document.addEventListener('DOMContentLoaded', function() {
 <!-- Global Telegram auto-login to avoid showing login CTA when running in TG -->
 <script>
 (function() {
-  // Server-side session flag
+  // Server-side session flags
   const IS_LOGGED_IN = (document.body.getAttribute('data-logged-in') === '1');
+  const IS_DEMO_USER = (document.body.getAttribute('data-is-demo') === '1');
+  
   document.addEventListener('DOMContentLoaded', function() {
-    if (IS_LOGGED_IN) return;
     const tg = (window.Telegram && window.Telegram.WebApp) ? window.Telegram.WebApp : null;
     if (!tg) return;
     try { tg.ready(); tg.expand(); } catch (e) {}
+    
     let user = null;
     try {
       if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
@@ -228,15 +230,21 @@ document.addEventListener('DOMContentLoaded', function() {
     } catch (e) {
       // ignore
     }
+    
     if (user && user.id) {
+      // Если пользователь в Telegram, всегда используем Telegram-авторизацию
+      // Особенно важно если сейчас залогинен демо-пользователь
       const params = new URLSearchParams({
         telegram_id: user.id,
         username: user.username || user.first_name || ('User' + user.id)
       });
       const target = '/login?' + params.toString();
       const onLogin = window.location.pathname === '/login';
-      const alreadyWithParams = onLogin && window.location.search.includes('telegram_id=');
-      if (!alreadyWithParams) {
+      const alreadyWithParams = onLogin && window.location.search.includes('telegram_id=' + user.id);
+      
+      // Если это демо-пользователь или не залогинен, перенаправляем на Telegram-авторизацию
+      if (!alreadyWithParams && (!IS_LOGGED_IN || IS_DEMO_USER)) {
+        console.log('Переключение с демо на Telegram авторизацию');
         window.location.replace(target);
       }
     }

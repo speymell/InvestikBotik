@@ -39,6 +39,13 @@ def send_telegram_message(telegram_id, message):
 
 def init_routes(app):
     
+    @app.context_processor
+    def inject_demo_flag():
+        """Добавляем флаг демо-режима во все шаблоны"""
+        return {
+            'is_demo_user': session.get('is_demo', False)
+        }
+    
     @app.route('/health')
     def health():
         """Health check endpoint для Render"""
@@ -710,6 +717,7 @@ def init_routes(app):
             
             # Сохраняем пользователя в сессии
             session['user_id'] = user.id
+            session.pop('is_demo', None)  # Очищаем флаг демо-режима
             return redirect(url_for('dashboard'))
         
         return render_template('login.html')
@@ -717,6 +725,15 @@ def init_routes(app):
     @app.route('/demo_login')
     def demo_login():
         """Демо-вход для тестирования без Telegram"""
+        # Проверяем, не пришёл ли запрос из Telegram Web App
+        user_agent = request.headers.get('User-Agent', '')
+        is_telegram = any(x in user_agent.lower() for x in ['telegram', 'tgwebapp'])
+        
+        # Запрещаем демо-вход из Telegram
+        if is_telegram:
+            logger.warning("Попытка демо-входа из Telegram Web App заблокирована")
+            return redirect(url_for('login'))
+        
         # Создаем или получаем демо-пользователя
         demo_user = User.query.filter_by(telegram_id='demo_user').first()
         
@@ -733,6 +750,7 @@ def init_routes(app):
             db.session.commit()
         
         session['user_id'] = demo_user.id
+        session['is_demo'] = True  # Флаг демо-режима
         return redirect(url_for('dashboard'))
     
     @app.route('/dashboard')
