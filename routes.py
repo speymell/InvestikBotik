@@ -42,15 +42,17 @@ def init_routes(app):
     @app.context_processor
     def inject_demo_flag():
         """Добавляем флаг демо-режима во все шаблоны"""
-        # Проверяем, что это действительно демо-пользователь
-        is_demo = False
-        if session.get('is_demo', False) and session.get('user_id'):
-            user = User.query.get(session['user_id'])
-            # Демо-режим только если это специальный демо-пользователь
-            is_demo = (user and user.telegram_id == 'demo_user')
-        return {
-            'is_demo_user': is_demo
-        }
+        try:
+            # Простая проверка без запросов к БД для производительности
+            # Демо-флаг показываем только если явно установлен в сессии
+            return {
+                'is_demo_user': session.get('is_demo', False)
+            }
+        except Exception as e:
+            logger.error(f"Ошибка в context_processor: {e}")
+            return {
+                'is_demo_user': False
+            }
     
     @app.route('/health')
     def health():
@@ -791,12 +793,15 @@ def init_routes(app):
             return redirect(url_for('login'))
         
         # ЗАЩИТА: Если открыто из Telegram, но пользователь в демо-режиме — принудительно выходим
-        user_agent = request.headers.get('User-Agent', '')
-        is_telegram = any(x in user_agent.lower() for x in ['telegram', 'tgwebapp'])
-        if is_telegram and session.get('is_demo', False):
-            logger.warning("Обнаружен демо-режим в Telegram WebView — принудительный выход")
-            session.clear()
-            return redirect(url_for('login'))
+        try:
+            user_agent = request.headers.get('User-Agent', '')
+            is_telegram = any(x in user_agent.lower() for x in ['telegram', 'tgwebapp'])
+            if is_telegram and session.get('is_demo', False):
+                logger.warning("Обнаружен демо-режим в Telegram WebView — принудительный выход")
+                session.clear()
+                return redirect(url_for('login'))
+        except Exception as e:
+            logger.error(f"Ошибка проверки демо-режима: {e}")
         
         user = User.query.get(session['user_id'])
         accounts = Account.query.filter_by(user_id=user.id).all()
