@@ -41,9 +41,9 @@
     <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
 </head>
 <body data-logged-in="{{ '1' if session.get('user_id') else '0' }}" data-is-demo="{{ '1' if is_demo_user else '0' }}">
-{% if is_demo_user %}
+<!-- {% if is_demo_user %}
   <a href="{{ url_for('logout') }}" class="demo-exit-btn d-md-none">Выйти</a>
-{% endif %}
+{% endif %} -->
 <!-- Desktop Navbar -->
 <nav class="navbar navbar-expand-lg glass-nav d-none d-md-block">
   <div class="container">
