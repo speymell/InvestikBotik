@@ -63,6 +63,11 @@
       <a class="nav-link" href="{{ url_for('stocks') }}">
         <i class="fas fa-chart-bar me-1"></i>Акции
       </a>
+      {% if is_demo_user %}
+      <a class="nav-link text-warning" href="{{ url_for('logout') }}" title="Выйти из демо-режима">
+        <i class="fas fa-sign-out-alt me-1"></i>Выйти
+      </a>
+      {% endif %}
       <button class="theme-toggle-nav ms-2" onclick="toggleTheme()" title="Переключить тему">
         <i class="fas fa-moon" id="themeIconDesktop"></i>
       </button>
@@ -99,10 +104,17 @@
     <i class="fas fa-home"></i>
     <span>Главная</span>
   </a> -->
+  {% if is_demo_user %}
+  <a href="{{ url_for('logout') }}" class="tabbar-item text-warning" title="Выйти из демо">
+    <i class="fas fa-sign-out-alt"></i>
+    <span>Выйти</span>
+  </a>
+  {% else %}
   <a href="#" class="tabbar-item" onclick="toggleTheme(); return false;" title="Тема">
     <i class="fas fa-moon" id="themeIcon"></i>
     <span>Тема</span>
   </a>
+  {% endif %}
 </nav>
 
 <div class="container">
@@ -232,20 +244,45 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     if (user && user.id) {
-      // Если пользователь в Telegram, всегда используем Telegram-авторизацию
-      // Особенно важно если сейчас залогинен демо-пользователь
-      const params = new URLSearchParams({
-        telegram_id: user.id,
-        username: user.username || user.first_name || ('User' + user.id)
-      });
-      const target = '/login?' + params.toString();
-      const onLogin = window.location.pathname === '/login';
-      const alreadyWithParams = onLogin && window.location.search.includes('telegram_id=' + user.id);
+      // КРИТИЧНО: Если пользователь в Telegram и сейчас демо-режим, 
+      // НЕМЕДЛЕННО выходим и логинимся через Telegram
+      if (IS_DEMO_USER) {
+        console.log('🔄 Обнаружен демо-пользователь в Telegram! Принудительный выход...');
+        // Сначала выходим, чтобы очистить сессию
+        fetch('/logout', { method: 'GET', credentials: 'same-origin' })
+          .then(() => {
+            // Затем логинимся через Telegram
+            const params = new URLSearchParams({
+              telegram_id: user.id,
+              username: user.username || user.first_name || ('User' + user.id)
+            });
+            window.location.replace('/login?' + params.toString());
+          })
+          .catch(() => {
+            // Если fetch не сработал, просто редиректим
+            const params = new URLSearchParams({
+              telegram_id: user.id,
+              username: user.username || user.first_name || ('User' + user.id)
+            });
+            window.location.replace('/login?' + params.toString());
+          });
+        return; // Останавливаем дальнейшее выполнение
+      }
       
-      // Если это демо-пользователь или не залогинен, перенаправляем на Telegram-авторизацию
-      if (!alreadyWithParams && (!IS_LOGGED_IN || IS_DEMO_USER)) {
-        console.log('Переключение с демо на Telegram авторизацию');
-        window.location.replace(target);
+      // Если не залогинен, логинимся через Telegram
+      if (!IS_LOGGED_IN) {
+        const params = new URLSearchParams({
+          telegram_id: user.id,
+          username: user.username || user.first_name || ('User' + user.id)
+        });
+        const target = '/login?' + params.toString();
+        const onLogin = window.location.pathname === '/login';
+        const alreadyWithParams = onLogin && window.location.search.includes('telegram_id=' + user.id);
+        
+        if (!alreadyWithParams) {
+          console.log('🔐 Автологин через Telegram');
+          window.location.replace(target);
+        }
       }
     }
   });

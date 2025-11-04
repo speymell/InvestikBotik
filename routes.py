@@ -722,6 +722,13 @@ def init_routes(app):
         
         return render_template('login.html')
     
+    @app.route('/logout')
+    def logout():
+        """Выход из системы"""
+        session.clear()
+        logger.info("Пользователь вышел из системы")
+        return redirect(url_for('index'))
+    
     @app.route('/demo_login')
     def demo_login():
         """Демо-вход для тестирования без Telegram"""
@@ -732,6 +739,8 @@ def init_routes(app):
         # Запрещаем демо-вход из Telegram
         if is_telegram:
             logger.warning("Попытка демо-входа из Telegram Web App заблокирована")
+            # Очищаем сессию и перенаправляем на логин
+            session.clear()
             return redirect(url_for('login'))
         
         # Создаем или получаем демо-пользователя
