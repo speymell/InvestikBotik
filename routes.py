@@ -729,6 +729,18 @@ def init_routes(app):
         logger.info("Пользователь вышел из системы")
         return redirect(url_for('index'))
     
+    @app.route('/favicon.ico')
+    def favicon():
+        """Serve favicon; redirect to SVG in static to avoid 404s"""
+        return redirect(url_for('static', filename='favicon.svg'))
+    
+    @app.route('/income')
+    def income_page():
+        """Страница доходов (купоны/дивиденды)"""
+        if 'user_id' not in session:
+            return redirect(url_for('login'))
+        return render_template('income.html')
+    
     @app.route('/demo_login')
     def demo_login():
         """Демо-вход для тестирования без Telegram"""

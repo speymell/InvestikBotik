@@ -1,0 +1,75 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<div class="row">
+  <div class="col-md-12">
+    <div class="card glass-card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Купоны и дивиденды</h5>
+        <small class="text-muted">Период: YTD</small>
+      </div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-sm-4">
+            <div class="p-3 border rounded-3 h-100">
+              <div class="text-muted small">Итого доход</div>
+              <div class="h4 mb-0" id="incTotal">—</div>
+            </div>
+          </div>
+          <div class="col-sm-4">
+            <div class="p-3 border rounded-3 h-100">
+              <div class="text-muted small">Купоны</div>
+              <div class="h5 mb-0" id="incCoupons">—</div>
+            </div>
+          </div>
+          <div class="col-sm-4">
+            <div class="p-3 border rounded-3 h-100">
+              <div class="text-muted small">Дивиденды</div>
+              <div class="h5 mb-0" id="incDividends">—</div>
+            </div>
+          </div>
+        </div>
+        <hr>
+        <div>
+          <div class="text-muted mb-2">Топ тикеров по доходу</div>
+          <div id="incTop" class="row g-2"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  function fmt(v){ try { return Number(v).toLocaleString('ru-RU', { maximumFractionDigits: 2 }) + ' ₽'; } catch(e){ return v; } }
+  document.addEventListener('DOMContentLoaded', function(){
+    fetch('/api/income_summary', { credentials: 'same-origin' })
+      .then(r=>r.json())
+      .then(d=>{
+        if(!d || d.success === false) return;
+        document.getElementById('incTotal').textContent = fmt(d.total_income || 0);
+        document.getElementById('incCoupons').textContent = fmt(d.total_coupons || 0);
+        document.getElementById('incDividends').textContent = fmt(d.total_dividends || 0);
+        const wrap = document.getElementById('incTop');
+        if(Array.isArray(d.top_tickers) && d.top_tickers.length){
+          d.top_tickers.forEach(it=>{
+            const col = document.createElement('div');
+            col.className = 'col-sm-6 col-lg-4';
+            col.innerHTML = '<div class="p-2 border rounded-3 d-flex justify-content-between align-items-center">'
+              + '<strong>' + (it.ticker || '-') + '</strong>'
+              + '<span>' + fmt(it.amount || 0) + '</span>'
+              + '</div>';
+            wrap.appendChild(col);
+          });
+        } else {
+          const p = document.createElement('p');
+          p.className = 'text-muted';
+          p.textContent = 'Нет данных за выбранный период';
+          wrap.appendChild(p);
+        }
+      })
+      .catch(()=>{});
+  });
+})();
+</script>
+{% endblock %}
