@@ -42,8 +42,14 @@ def init_routes(app):
     @app.context_processor
     def inject_demo_flag():
         """Добавляем флаг демо-режима во все шаблоны"""
+        # Проверяем, что это действительно демо-пользователь
+        is_demo = False
+        if session.get('is_demo', False) and session.get('user_id'):
+            user = User.query.get(session['user_id'])
+            # Демо-режим только если это специальный демо-пользователь
+            is_demo = (user and user.telegram_id == 'demo_user')
         return {
-            'is_demo_user': session.get('is_demo', False)
+            'is_demo_user': is_demo
         }
     
     @app.route('/health')
@@ -701,6 +707,10 @@ def init_routes(app):
         
         # Если есть данные Telegram или это Telegram браузер, автоматически логиним
         if telegram_id and username:
+            # КРИТИЧНО: Полностью очищаем сессию перед входом через Telegram
+            # Это исправляет баг, когда пользователь застревает в демо-режиме
+            session.clear()
+            
             # Проверяем, существует ли пользователь
             user = User.query.filter_by(telegram_id=telegram_id).first()
             
@@ -715,9 +725,9 @@ def init_routes(app):
                 
                 db.session.commit()
             
-            # Сохраняем пользователя в сессии
+            # Сохраняем пользователя в сессии (is_demo НЕ устанавливаем)
             session['user_id'] = user.id
-            session.pop('is_demo', None)  # Очищаем флаг демо-режима
+            logger.info(f"Вход через Telegram: user_id={user.id}, telegram_id={telegram_id}")
             return redirect(url_for('dashboard'))
         
         return render_template('login.html')
@@ -778,6 +788,14 @@ def init_routes(app):
     def dashboard():
         """Главная панель пользователя"""
         if 'user_id' not in session:
+            return redirect(url_for('login'))
+        
+        # ЗАЩИТА: Если открыто из Telegram, но пользователь в демо-режиме — принудительно выходим
+        user_agent = request.headers.get('User-Agent', '')
+        is_telegram = any(x in user_agent.lower() for x in ['telegram', 'tgwebapp'])
+        if is_telegram and session.get('is_demo', False):
+            logger.warning("Обнаружен демо-режим в Telegram WebView — принудительный выход")
+            session.clear()
             return redirect(url_for('login'))
         
         user = User.query.get(session['user_id'])
