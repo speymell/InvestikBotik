@@ -2244,8 +2244,12 @@ footer {
   }
 }
 
-body.in-telegram .page-surface {
-  padding-top: calc(env(safe-area-inset-top, 0px) + 12px);
+body.in-telegram {
+  padding-top: calc(env(safe-area-inset-top, 0px) + 48px) !important;
+}
+
+body.in-telegram .container {
+  padding-top: 8px;
 }
 
 body.in-telegram .tabbar {

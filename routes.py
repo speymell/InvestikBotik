@@ -37,6 +37,17 @@ def send_telegram_message(telegram_id, message):
         logger.error(f"Исключение при отправке Telegram сообщения: {e}")
         return False
 
+def clear_demo_flag_if_real_user():
+    """Очищает флаг is_demo, если текущий пользователь НЕ демо-пользователь"""
+    try:
+        if 'user_id' in session and session.get('is_demo', False):
+            user = User.query.get(session['user_id'])
+            if user and user.telegram_id != 'demo_user':
+                logger.info(f"Очистка is_demo для реального пользователя {user.telegram_id}")
+                session.pop('is_demo', None)
+    except Exception as e:
+        logger.error(f"Ошибка в clear_demo_flag_if_real_user: {e}")
+
 def init_routes(app):
     
     @app.context_processor
@@ -749,6 +760,7 @@ def init_routes(app):
     @app.route('/income')
     def income_page():
         """Страница доходов (купоны/дивиденды)"""
+        clear_demo_flag_if_real_user()  # Очищаем демо-флаг для реальных пользователей
         if 'user_id' not in session:
             return redirect(url_for('login'))
         return render_template('income.html')
@@ -804,6 +816,13 @@ def init_routes(app):
             logger.error(f"Ошибка проверки демо-режима: {e}")
         
         user = User.query.get(session['user_id'])
+        
+        # ДОПОЛНИТЕЛЬНАЯ ЗАЩИТА: Если это НЕ демо-пользователь, убираем флаг is_demo
+        if user and user.telegram_id != 'demo_user':
+            if session.get('is_demo', False):
+                logger.warning(f"Обнаружен is_demo=True для реального пользователя {user.telegram_id}, очищаем")
+                session.pop('is_demo', None)
+        
         accounts = Account.query.filter_by(user_id=user.id).all()
 
         # Для каждого счета считаем полную стоимость
@@ -876,6 +895,7 @@ def init_routes(app):
     @app.route('/account/<int:account_id>')
     def account_detail(account_id):
         """Страница деталей счета"""
+        clear_demo_flag_if_real_user()  # Очищаем демо-флаг для реальных пользователей
         if 'user_id' not in session:
             return redirect(url_for('login'))
         # Проверяем, что счет принадлежит пользователю
@@ -920,6 +940,7 @@ def init_routes(app):
     @app.route('/stocks')
     def stocks():
         """Страница со списком акций"""
+        clear_demo_flag_if_real_user()  # Очищаем демо-флаг для реальных пользователей
         page = request.args.get('page', 1, type=int)
         search = request.args.get('search', '')
         ins_type = request.args.get('type', 'share')
