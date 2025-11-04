@@ -752,6 +752,18 @@ def init_routes(app):
         logger.info("Пользователь вышел из системы")
         return redirect(url_for('index'))
     
+    @app.route('/force_logout')
+    def force_logout():
+        """Принудительный выход и перелогин (для исправления застрявшего демо-режима)"""
+        session.clear()
+        logger.info("Принудительный выход из системы")
+        # Если открыто из Telegram, редиректим на login для автологина
+        user_agent = request.headers.get('User-Agent', '')
+        is_telegram = any(x in user_agent.lower() for x in ['telegram', 'tgwebapp'])
+        if is_telegram:
+            return redirect(url_for('login'))
+        return redirect(url_for('index'))
+    
     @app.route('/favicon.ico')
     def favicon():
         """Serve favicon; redirect to SVG in static to avoid 404s"""

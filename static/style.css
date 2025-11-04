@@ -2244,12 +2244,11 @@ footer {
   }
 }
 
-body.in-telegram {
-  padding-top: calc(env(safe-area-inset-top, 0px) + 48px) !important;
-}
-
-body.in-telegram .container {
-  padding-top: 8px;
+/* Отступ сверху ТОЛЬКО для мобильных в Telegram WebView */
+@media (max-width: 767.98px) {
+  body.in-telegram {
+    padding-top: calc(env(safe-area-inset-top, 0px) + 48px) !important;
+  }
 }
 
 body.in-telegram .tabbar {

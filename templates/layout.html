@@ -296,6 +296,23 @@ document.addEventListener('DOMContentLoaded', function() {
     const tg = (window.Telegram && window.Telegram.WebApp) ? window.Telegram.WebApp : null;
     if (tg) {
       document.body.classList.add('in-telegram');
+      
+      // Добавляем плавающую кнопку "Выйти" для мобильных в Telegram
+      // Показываем только если is_demo=true ИЛИ если пользователь застрял в демо
+      const isDemo = document.body.getAttribute('data-is-demo') === '1';
+      const isMobile = window.innerWidth <= 767;
+      
+      if (isMobile && isDemo) {
+        const existingBtn = document.querySelector('.demo-exit-btn');
+        if (!existingBtn) {
+          const btn = document.createElement('a');
+          btn.href = '/force_logout';
+          btn.className = 'demo-exit-btn';
+          btn.textContent = 'Выйти';
+          btn.style.cssText = 'position:fixed;top:calc(env(safe-area-inset-top,0px) + 8px);right:12px;z-index:1101;background:#f59e0b;color:#111;border-radius:999px;padding:8px 12px;font-weight:600;text-decoration:none;box-shadow:0 4px 16px rgba(0,0,0,.15);';
+          document.body.appendChild(btn);
+        }
+      }
     }
   });
 </script>
