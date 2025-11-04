@@ -66,11 +66,11 @@
       <a class="nav-link" href="{{ url_for('stocks') }}">
         <i class="fas fa-chart-bar me-1"></i>Акции
       </a>
-      {% if is_demo_user %}
+      <!-- {% if is_demo_user %} -->
       <a class="nav-link text-warning" href="{{ url_for('logout') }}" title="Выйти из демо-режима">
         <i class="fas fa-sign-out-alt me-1"></i>Выйти
       </a>
-      {% endif %}
+      <!-- {% endif %} -->
       <button class="theme-toggle-nav ms-2" onclick="toggleTheme()" title="Переключить тему">
         <i class="fas fa-moon" id="themeIconDesktop"></i>
       </button>
